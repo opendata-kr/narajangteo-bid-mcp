@@ -9,4 +9,4 @@
 ### Added
 - 나라장터 입찰공고정보서비스 MCP 서버: `search_bid_notices`, `get_bid_notice` tool
 - data.go.kr 에러코드 한국어 정규화, 이중 인코딩 방어, 10초 타임아웃
-- 오픈소스 표준 파일: LICENSE, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, CI, dependabot, editorconfig
+- 오픈소스 표준 파일: LICENSE, CI, dependabot, editorconfig (CODE_OF_CONDUCT·CONTRIBUTING·SECURITY는 조직 `.github` 리포에서 상속)
