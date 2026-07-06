@@ -43,6 +43,7 @@ export async function runGetNotice(
     kinds.map((kind) => callFn(config, listOperation(kind), { ...params })),
   );
 
+  const errorMessages: string[] = [];
   for (let i = 0; i < kinds.length; i++) {
     const s = settled[i]!;
     if (s.status === "fulfilled" && s.value.items.length > 0) {
@@ -53,6 +54,14 @@ export async function runGetNotice(
         searchedKinds: kinds,
       };
     }
+    if (s.status === "rejected") {
+      const msg = s.reason instanceof Error ? s.reason.message : String(s.reason);
+      if (!errorMessages.includes(msg)) errorMessages.push(msg);
+    }
+  }
+
+  if (errorMessages.length > 0) {
+    throw new Error(`입찰공고 조회 중 오류: ${errorMessages.join("; ")}`);
   }
   return { found: false, searchedKinds: kinds };
 }

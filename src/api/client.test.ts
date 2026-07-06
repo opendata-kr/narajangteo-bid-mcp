@@ -16,6 +16,20 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+function xmlResponse(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: { "content-type": "text/xml" },
+  });
+}
+
+function textResponse(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: { "content-type": "text/plain" },
+  });
+}
+
 describe("buildUrl", () => {
   it("서비스키를 정확히 한 번만 인코딩한다", () => {
     const url = buildUrl(config, "getBidPblancListInfoCnstwkPPSSrch", {
@@ -89,5 +103,27 @@ describe("callOperation", () => {
     await expect(
       callOperation(config, "op", {}, { fetchFn }),
     ).rejects.toThrow(/500/);
+  });
+
+  it("HTTP 200이지만 XML 에러 응답(서비스키 미등록)은 BidApiError를 던진다", async () => {
+    const fetchFn = vi.fn(async () =>
+      xmlResponse(
+        "<OpenAPI_ServiceResponse><cmmMsgHeader><returnReasonCode>30</returnReasonCode>" +
+          "<returnAuthMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</returnAuthMsg>" +
+          "<errMsg>SERVICE ERROR</errMsg></cmmMsgHeader></OpenAPI_ServiceResponse>",
+      ),
+    );
+    const err = await callOperation(config, "op", {}, { fetchFn }).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(BidApiError);
+    expect((err as Error).message).toMatch(/서비스키/);
+  });
+
+  it("HTTP 200이지만 JSON으로 해석 불가한 평문 응답은 스니펫을 포함한 에러를 던진다", async () => {
+    const fetchFn = vi.fn(async () => textResponse("Service Unavailable"));
+    await expect(
+      callOperation(config, "op", {}, { fetchFn }),
+    ).rejects.toThrow(/JSON으로 해석할 수 없습니다.*Service Unavailable/);
   });
 });

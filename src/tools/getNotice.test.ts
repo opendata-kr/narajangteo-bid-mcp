@@ -49,6 +49,15 @@ describe("runGetNotice", () => {
     expect(r.searchedKinds).toHaveLength(4);
   });
 
+  it("모든 구분이 실패하면 found:false로 감추지 않고 오류를 던진다", async () => {
+    const callFn = vi.fn(async (): Promise<OperationResult> => {
+      throw new Error("[30] 등록되지 않은 서비스키입니다.");
+    });
+    await expect(
+      runGetNotice(config, { bidNtceNo: "X" }, { callFn }),
+    ).rejects.toThrow(/등록되지 않은 서비스키/);
+  });
+
   it("bidKind 지정 시 해당 구분만 조회한다", async () => {
     const callFn = vi.fn(
       async (): Promise<OperationResult> => ({
