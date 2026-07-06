@@ -31,11 +31,60 @@ Claude Desktop 등 MCP 클라이언트에서 입찰공고를 자연어로 검색
 
 > 서비스키는 반드시 **Decoding(원본)** 키를 넣는다. Encoding(`%2B` 등 포함) 키를 넣으면 이중 인코딩으로 인증 오류(코드 30)가 난다.
 
-## 설치 및 설정
+## MCP 클라이언트 설정
 
-MCP 클라이언트 설정에 아래 서버를 등록하고, 클라이언트를 재시작한 뒤 "이번 주 용역 입찰 찾아줘"처럼 요청해 확인한다.
+이 서버는 **로컬 stdio** MCP 서버다. 대부분의 MCP 클라이언트에서 아래 서버 정의를 등록하고 재시작한 뒤 "이번 주 용역 입찰 찾아줘"처럼 요청하면 된다. 원격(HTTPS) 전용 클라이언트(ChatGPT 등)는 맨 아래 "원격 전용 클라이언트" 항목을 본다.
 
-### Claude Desktop (`claude_desktop_config.json`)
+**공통 서버 정의** (모든 클라이언트가 공유하는 핵심):
+
+```json
+{
+  "command": "npx",
+  "args": ["-y", "@opendata-kr/narajangteo-bid-mcp"],
+  "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" }
+}
+```
+
+이 정의를 클라이언트마다 최상위 키 아래에 넣는다. **키 이름과 형식이 다르며, 틀리면 조용히 로드에 실패한다.**
+
+| 클라이언트 | 형식 / 최상위 키 | 설정 경로 또는 추가 방법 |
+|---|---|---|
+| Claude Desktop | JSON `mcpServers` | `claude_desktop_config.json` |
+| Claude Code | JSON `mcpServers` | CLI `claude mcp add` 또는 `.mcp.json` |
+| Cursor | JSON `mcpServers` | `~/.cursor/mcp.json` 또는 원클릭 딥링크 |
+| Windsurf | JSON `mcpServers` | `~/.codeium/windsurf/mcp_config.json` |
+| Gemini CLI | JSON `mcpServers` | `~/.gemini/settings.json` |
+| VS Code (Copilot) | JSON `servers` | `.vscode/mcp.json` 또는 CLI `code --add-mcp` |
+| Zed | JSON `context_servers` | `~/.config/zed/settings.json` |
+| Continue | JSON `mcpServers` (배열) | Continue 설정 |
+| Codex (OpenAI) | TOML `[mcp_servers.<name>]` | `~/.codex/config.toml` 또는 CLI `codex mcp add` |
+| Antigravity, JetBrains/Eclipse/Xcode Copilot | IDE UI | 각 IDE의 MCP 설정 화면(원클릭) |
+
+### CLI와 원클릭 (손편집 없이)
+
+Claude Code:
+
+```bash
+claude mcp add --env DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 narajangteo-bid -- npx -y @opendata-kr/narajangteo-bid-mcp
+```
+
+Codex:
+
+```bash
+codex mcp add narajangteo-bid --env DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 -- npx -y @opendata-kr/narajangteo-bid-mcp
+```
+
+VS Code:
+
+```bash
+code --add-mcp '{"name":"narajangteo-bid","command":"npx","args":["-y","@opendata-kr/narajangteo-bid-mcp"],"env":{"DATA_GO_KR_SERVICE_KEY":"발급받은_Decoding_키"}}'
+```
+
+Cursor: 문서의 "Add to Cursor" 버튼 또는 딥링크 `cursor://anysphere.cursor-deeplink/mcp/install`(공통 서버 정의를 base64로 인코딩).
+
+### 설정 파일 직접 편집
+
+`mcpServers` 객체 계열 (Claude Desktop, Cursor, Windsurf, Gemini CLI):
 
 ```json
 {
@@ -49,31 +98,10 @@ MCP 클라이언트 설정에 아래 서버를 등록하고, 클라이언트를 
 }
 ```
 
-Windows에서는 `npx`를 `cmd /c`로 감싼다.
-
-```json
-{
-  "mcpServers": {
-    "narajangteo-bid": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "@opendata-kr/narajangteo-bid-mcp"],
-      "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" }
-    }
-  }
-}
-```
-
 <details>
-<summary>Cursor</summary>
+<summary>VS Code (servers), Zed (context_servers), Codex (TOML)</summary>
 
-`~/.cursor/mcp.json`(또는 프로젝트 `.cursor/mcp.json`)에 위와 같은 `mcpServers` 블록을 넣는다.
-
-</details>
-
-<details>
-<summary>VS Code</summary>
-
-VS Code는 최상위 키가 `servers`다. `.vscode/mcp.json`:
+VS Code `.vscode/mcp.json`:
 
 ```json
 {
@@ -87,9 +115,45 @@ VS Code는 최상위 키가 `servers`다. `.vscode/mcp.json`:
 }
 ```
 
+Zed `~/.config/zed/settings.json` (스키마는 Zed 버전에 따라 다를 수 있으니 Zed 공식 문서를 확인):
+
+```json
+{
+  "context_servers": {
+    "narajangteo-bid": {
+      "command": { "path": "npx", "args": ["-y", "@opendata-kr/narajangteo-bid-mcp"] },
+      "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" }
+    }
+  }
+}
+```
+
+Codex `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.narajangteo-bid]
+command = "npx"
+args = ["-y", "@opendata-kr/narajangteo-bid-mcp"]
+env = { DATA_GO_KR_SERVICE_KEY = "발급받은_Decoding_키" }
+```
+
 </details>
 
-다른 stdio MCP 클라이언트도 `npx -y @opendata-kr/narajangteo-bid-mcp`를 stdio 서버로 실행하고 `DATA_GO_KR_SERVICE_KEY` 환경변수를 전달하면 된다.
+### Windows
+
+`command`를 `cmd`로 바꾸고 `args` 앞에 `/c`를 둔다.
+
+```json
+{ "command": "cmd", "args": ["/c", "npx", "-y", "@opendata-kr/narajangteo-bid-mcp"], "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" } }
+```
+
+### 원격 전용 클라이언트 (ChatGPT 등)
+
+ChatGPT Developer Mode처럼 **원격(HTTPS) MCP만 지원하는 클라이언트**는 로컬 stdio 서버를 직접 붙일 수 없다. `mcp-remote`로 이 서버를 감싸 HTTPS로 노출한 뒤 그 URL을 커넥터로 등록한다.
+
+### 발견성
+
+이 서버는 MCP 레지스트리에 `io.github.opendata-kr/narajangteo-bid-mcp`로 기술된다. [registry.modelcontextprotocol.io](https://registry.modelcontextprotocol.io)를 지원하는 클라이언트에서 검색·설치할 수 있다.
 
 ## 환경변수
 
