@@ -1,14 +1,23 @@
 {
-  "name": "bid-public-info-service-mcp",
+  "name": "@opendata-kr/narajangteo-bid-mcp",
   "version": "0.0.0",
   "description": "나라장터 입찰공고정보서비스 Open API를 위한 로컬 MCP 서버",
   "type": "module",
   "bin": {
-    "bid-public-info-service-mcp": "dist/index.js"
+    "narajangteo-bid-mcp": "dist/index.js"
   },
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/opendata-kr/narajangteo-bid-mcp.git"
+  },
+  "homepage": "https://github.com/opendata-kr/narajangteo-bid-mcp#readme",
+  "bugs": "https://github.com/opendata-kr/narajangteo-bid-mcp/issues",
   "engines": {
     "node": ">=24"
   },

@@ -6,7 +6,7 @@ async function main(): Promise<void> {
   const config = loadConfig(process.env);
   if (config.looksPreEncoded) {
     console.error(
-      "[bid-public-info-service-mcp] 경고: BID_SERVICE_KEY에 %가 포함되어 이미 URL 인코딩된 키로 보입니다. Decoding(원본) 키를 사용하세요.",
+      "[narajangteo-bid-mcp] 경고: BID_SERVICE_KEY에 %가 포함되어 이미 URL 인코딩된 키로 보입니다. Decoding(원본) 키를 사용하세요.",
     );
   }
   const server = createServer(config);
@@ -15,6 +15,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error("[bid-public-info-service-mcp] fatal:", err);
+  console.error("[narajangteo-bid-mcp] fatal:", err);
   process.exit(1);
 });

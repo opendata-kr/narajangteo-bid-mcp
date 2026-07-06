@@ -22,7 +22,7 @@ function textResult(payload: unknown, isError = false) {
 
 export function createServer(config: AppConfig): McpServer {
   const server = new McpServer({
-    name: "bid-public-info-service-mcp",
+    name: "narajangteo-bid-mcp",
     version: "0.0.0",
   });
 
