@@ -12,8 +12,8 @@ importers:
         specifier: latest
         version: 1.29.0(zod@4.4.3)
       '@opendata-kr/core':
-        specifier: link:../core
-        version: link:../core
+        specifier: ^0.1.0
+        version: 0.1.0
       zod:
         specifier: latest
         version: 4.4.3
@@ -391,6 +391,9 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
+
+  '@opendata-kr/core@0.1.0':
+    resolution: {integrity: sha512-WvGLDeA3Hjr758htIL1dlRE1vnT3OWIf7tCl+DVouXchc6y39LU1ygHujd3n7HGENsYeIybZJ22Xwt0KKj84/w==}
 
   '@oxc-project/types@0.138.0':
     resolution: {integrity: sha512-1a7ZKmrRTCoN1XMZ4L0PyyqrMnrNlLyPuOkdSX2MZg7IiIGRUyurNhAm73ptDOraoBcIordsIGKNPKUzy3ZmfA==}
@@ -1682,6 +1685,8 @@ snapshots:
       '@emnapi/runtime': 1.11.1
       '@tybys/wasm-util': 0.10.3
     optional: true
+
+  '@opendata-kr/core@0.1.0': {}
 
   '@oxc-project/types@0.138.0': {}
 
