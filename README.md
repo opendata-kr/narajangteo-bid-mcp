@@ -5,7 +5,9 @@
 나라장터 입찰공고정보서비스(공공데이터포털 data.go.kr) Open API를 감싼 로컬 MCP 서버.
 
 [![npm version](https://img.shields.io/npm/v/@opendata-kr/narajangteo-bid-mcp)](https://www.npmjs.com/package/@opendata-kr/narajangteo-bid-mcp)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/opendata-kr/narajangteo-bid-mcp/ci.yml?branch=main&label=CI)](https://github.com/opendata-kr/narajangteo-bid-mcp/actions/workflows/ci.yml)
+[![node](https://img.shields.io/node/v/@opendata-kr/narajangteo-bid-mcp)](https://nodejs.org)
+[![license](https://img.shields.io/npm/l/@opendata-kr/narajangteo-bid-mcp)](./LICENSE)
 
 Claude Desktop 등 MCP 클라이언트에서 입찰공고를 자연어로 검색하고 조회한다. 예를 들어 이렇게 물어볼 수 있다.
 
