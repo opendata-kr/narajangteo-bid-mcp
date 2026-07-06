@@ -35,123 +35,403 @@ Claude Desktop 등 MCP 클라이언트에서 입찰공고를 자연어로 검색
 
 ## MCP 클라이언트 설정
 
-이 서버는 **로컬 stdio** MCP 서버다. 대부분의 MCP 클라이언트에서 아래 서버 정의를 등록하고 재시작한 뒤 "이번 주 용역 입찰 찾아줘"처럼 요청하면 된다. 원격(HTTPS) 전용 클라이언트(ChatGPT 등)는 맨 아래 "원격 전용 클라이언트" 항목을 본다.
-
-**공통 서버 정의** (모든 클라이언트가 공유하는 핵심):
-
-```json
-{
-  "command": "npx",
-  "args": ["-y", "@opendata-kr/narajangteo-bid-mcp"],
-  "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" }
-}
-```
-
-이 정의를 클라이언트마다 최상위 키 아래에 넣는다. **키 이름과 형식이 다르며, 틀리면 조용히 로드에 실패한다.**
-
-| 클라이언트 | 형식 / 최상위 키 | 설정 경로 또는 추가 방법 |
-|---|---|---|
-| Claude Desktop | JSON `mcpServers` | `claude_desktop_config.json` |
-| Claude Code | JSON `mcpServers` | CLI `claude mcp add` 또는 `.mcp.json` |
-| Cursor | JSON `mcpServers` | `~/.cursor/mcp.json` 또는 원클릭 딥링크 |
-| Windsurf | JSON `mcpServers` | `~/.codeium/windsurf/mcp_config.json` |
-| Gemini CLI | JSON `mcpServers` | `~/.gemini/settings.json` |
-| VS Code (Copilot) | JSON `servers` | `.vscode/mcp.json` 또는 CLI `code --add-mcp` |
-| Zed | JSON `context_servers` | `~/.config/zed/settings.json` |
-| Continue | JSON `mcpServers` (배열) | Continue 설정 |
-| Codex (OpenAI) | TOML `[mcp_servers.<name>]` | `~/.codex/config.toml` 또는 CLI `codex mcp add` |
-| Antigravity, JetBrains/Eclipse/Xcode Copilot | IDE UI | 각 IDE의 MCP 설정 화면(원클릭) |
-
-### CLI와 원클릭 (손편집 없이)
-
-Claude Code:
-
-```bash
-claude mcp add --env DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 narajangteo-bid -- npx -y @opendata-kr/narajangteo-bid-mcp
-```
-
-Codex:
-
-```bash
-codex mcp add narajangteo-bid --env DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 -- npx -y @opendata-kr/narajangteo-bid-mcp
-```
-
-VS Code:
-
-```bash
-code --add-mcp '{"name":"narajangteo-bid","command":"npx","args":["-y","@opendata-kr/narajangteo-bid-mcp"],"env":{"DATA_GO_KR_SERVICE_KEY":"발급받은_Decoding_키"}}'
-```
-
-Cursor: 문서의 "Add to Cursor" 버튼 또는 딥링크 `cursor://anysphere.cursor-deeplink/mcp/install`(공통 서버 정의를 base64로 인코딩).
-
-### 설정 파일 직접 편집
-
-`mcpServers` 객체 계열 (Claude Desktop, Cursor, Windsurf, Gemini CLI):
+MCP 클라이언트에 아래 config를 추가한다:
 
 ```json
 {
   "mcpServers": {
     "narajangteo-bid": {
       "command": "npx",
-      "args": ["-y", "@opendata-kr/narajangteo-bid-mcp"],
+      "args": ["-y", "@opendata-kr/narajangteo-bid-mcp@latest"],
       "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" }
     }
   }
 }
 ```
+
+> [!NOTE]
+> `@opendata-kr/narajangteo-bid-mcp@latest`를 쓰면 클라이언트가 항상 최신 버전을 받는다.
+
+> [!IMPORTANT]
+> `DATA_GO_KR_SERVICE_KEY`(필수, **Decoding 원본** 키)가 없으면 첫 호출이 인증 오류(코드 30)로 실패한다. 위 config의 `env`에 키를 넣는다. 원클릭 버튼이나 env를 config에 담지 못하는 클라이언트는 설치 후 셸 환경변수로 `DATA_GO_KR_SERVICE_KEY`를 설정한다.
+
+### 클라이언트별 설정
 
 <details>
-<summary>VS Code (servers), Zed (context_servers), Codex (TOML)</summary>
+  <summary>Amp</summary>
+  https://ampcode.com/manual#mcp 의 안내를 따르고 위 config를 사용한다. CLI로도 추가할 수 있다:
 
-VS Code `.vscode/mcp.json`:
+```bash
+amp mcp add narajangteo-bid -- npx -y @opendata-kr/narajangteo-bid-mcp@latest
+```
+
+이후 생성된 설정의 `env`(또는 셸 환경변수)에 `DATA_GO_KR_SERVICE_KEY`를 추가한다.
+
+</details>
+
+<details>
+  <summary>Antigravity</summary>
+
+<a href="https://antigravity.google/docs/mcp">Antigravity 문서</a>의 커스텀 MCP 서버 추가 방법을 따라 아래 config를 MCP servers 설정에 넣는다:
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "narajangteo-bid": {
       "command": "npx",
-      "args": ["-y", "@opendata-kr/narajangteo-bid-mcp"],
+      "args": ["-y", "@opendata-kr/narajangteo-bid-mcp@latest"],
       "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" }
     }
   }
 }
 ```
 
-Zed `~/.config/zed/settings.json` (스키마는 Zed 버전에 따라 다를 수 있으니 Zed 공식 문서를 확인):
+</details>
 
-```json
-{
-  "context_servers": {
-    "narajangteo-bid": {
-      "command": { "path": "npx", "args": ["-y", "@opendata-kr/narajangteo-bid-mcp"] },
-      "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" }
-    }
-  }
-}
+<details>
+  <summary>Claude Code</summary>
+
+Claude Code CLI로 서버를 추가한다 (<a href="https://code.claude.com/docs/en/mcp">가이드</a>):
+
+```bash
+claude mcp add narajangteo-bid --scope user --env DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 -- npx -y @opendata-kr/narajangteo-bid-mcp@latest
 ```
 
-Codex `~/.codex/config.toml`:
+</details>
+
+<details>
+  <summary>Cline</summary>
+  https://docs.cline.bot/mcp/configuring-mcp-servers 의 안내를 따르고 위 config를 사용한다.
+</details>
+
+<details>
+  <summary>Codex</summary>
+  <a href="https://developers.openai.com/codex/mcp/#configure-with-the-cli">MCP 설정 가이드</a>를 따르고 위 config를 사용한다. Codex CLI로도 추가할 수 있다:
+
+```bash
+codex mcp add narajangteo-bid --env DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 -- npx -y @opendata-kr/narajangteo-bid-mcp@latest
+```
+
+**Windows**
+
+`~/.codex/config.toml`에 `cmd /c` 래핑으로 추가한다:
 
 ```toml
 [mcp_servers.narajangteo-bid]
-command = "npx"
-args = ["-y", "@opendata-kr/narajangteo-bid-mcp"]
+command = "cmd"
+args = ["/c", "npx", "-y", "@opendata-kr/narajangteo-bid-mcp@latest"]
 env = { DATA_GO_KR_SERVICE_KEY = "발급받은_Decoding_키" }
 ```
 
 </details>
 
-### Windows
+<details>
+  <summary>Command Code</summary>
 
-`command`를 `cmd`로 바꾸고 `args` 앞에 `/c`를 둔다.
+Command Code CLI로 서버를 추가한다 (<a href="https://commandcode.ai/docs/mcp">MCP 가이드</a>):
 
-```json
-{ "command": "cmd", "args": ["/c", "npx", "-y", "@opendata-kr/narajangteo-bid-mcp"], "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" } }
+```bash
+cmd mcp add narajangteo-bid --scope user npx -y @opendata-kr/narajangteo-bid-mcp@latest
 ```
 
-### 원격 전용 클라이언트 (ChatGPT 등)
+이후 생성된 설정의 `env`(또는 셸 환경변수)에 `DATA_GO_KR_SERVICE_KEY`를 추가한다.
 
-ChatGPT Developer Mode처럼 **원격(HTTPS) MCP만 지원하는 클라이언트**는 로컬 stdio 서버를 직접 붙일 수 없다. `mcp-remote`로 이 서버를 감싸 HTTPS로 노출한 뒤 그 URL을 커넥터로 등록한다.
+</details>
+
+<details>
+  <summary>Continue</summary>
+
+Continue의 <a href="https://docs.continue.dev/customize/deep-dives/mcp">MCP 가이드</a>를 따른다. Continue는 `mcpServers`를 배열로 쓴다:
+
+```json
+{
+  "mcpServers": [
+    {
+      "name": "narajangteo-bid",
+      "command": "npx",
+      "args": ["-y", "@opendata-kr/narajangteo-bid-mcp@latest"],
+      "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" }
+    }
+  ]
+}
+```
+
+</details>
+
+<details>
+  <summary>Copilot CLI</summary>
+
+Copilot CLI를 시작한다:
+
+```
+copilot
+```
+
+MCP 서버 추가 대화를 연다:
+
+```
+/mcp add
+```
+
+다음 필드를 입력하고 `CTRL+S`로 저장한다:
+
+- **Server name:** `narajangteo-bid`
+- **Server Type:** `[1] Local`
+- **Command:** `npx -y @opendata-kr/narajangteo-bid-mcp@latest`
+- **Environment variables:** `DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키`
+
+</details>
+
+<details>
+  <summary>Copilot / VS Code</summary>
+
+**버튼으로 설치:**
+
+[<img src="https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white" alt="Install in VS Code">](https://vscode.dev/redirect/mcp/install?name=io.github.opendata-kr%2Fnarajangteo-bid-mcp&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40opendata-kr%2Fnarajangteo-bid-mcp%22%5D%2C%22env%22%3A%7B%7D%7D)
+
+[<img src="https://img.shields.io/badge/VS_Code_Insiders-Install_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white" alt="Install in VS Code Insiders">](https://insiders.vscode.dev/redirect?url=vscode-insiders%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522io.github.opendata-kr%252Fnarajangteo-bid-mcp%2522%252C%2522config%2522%253A%257B%2522command%2522%253A%2522npx%2522%252C%2522args%2522%253A%255B%2522-y%2522%252C%2522%2540opendata-kr%252Fnarajangteo-bid-mcp%2522%255D%252C%2522env%2522%253A%257B%257D%257D%257D)
+
+> 버튼은 키를 담지 못한다. 설치 후 `.vscode/mcp.json`(또는 사용자 설정)의 `env`에 `DATA_GO_KR_SERVICE_KEY`를 추가한다.
+
+**직접 추가:**
+
+VS Code [MCP 설정 가이드](https://code.visualstudio.com/docs/copilot/chat/mcp-servers#_add-an-mcp-server)를 따르거나 CLI를 쓴다.
+
+macOS·Linux:
+
+```bash
+code --add-mcp '{"name":"narajangteo-bid","command":"npx","args":["-y","@opendata-kr/narajangteo-bid-mcp@latest"],"env":{"DATA_GO_KR_SERVICE_KEY":"발급받은_Decoding_키"}}'
+```
+
+Windows(PowerShell):
+
+```powershell
+code --add-mcp '{"""name""":"""narajangteo-bid""","""command""":"""npx""","""args""":["""-y""","""@opendata-kr/narajangteo-bid-mcp@latest"""],"""env""":{"""DATA_GO_KR_SERVICE_KEY""":"""발급받은_Decoding_키"""}}'
+```
+
+</details>
+
+<details>
+  <summary>Cursor</summary>
+
+**버튼으로 설치:**
+
+[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Add narajangteo-bid MCP server to Cursor">](https://cursor.com/en/install-mcp?name=narajangteo-bid&config=eyJjb21tYW5kIjoibnB4IC15IEBvcGVuZGF0YS1rci9uYXJhamFuZ3Rlby1iaWQtbWNwQGxhdGVzdCJ9)
+
+> 버튼은 키를 담지 못한다. 설치 후 Cursor의 MCP 설정에서 `env`에 `DATA_GO_KR_SERVICE_KEY`를 추가한다.
+
+**직접 추가:**
+
+`Cursor Settings` → `MCP` → `New MCP Server`에서 위 config를 사용한다.
+
+</details>
+
+<details>
+  <summary>Factory CLI</summary>
+
+Factory CLI로 서버를 추가한다 (<a href="https://docs.factory.ai/cli/configuration/mcp">가이드</a>):
+
+```bash
+droid mcp add narajangteo-bid "npx -y @opendata-kr/narajangteo-bid-mcp@latest"
+```
+
+이후 생성된 설정의 `env`(또는 셸 환경변수)에 `DATA_GO_KR_SERVICE_KEY`를 추가한다.
+
+</details>
+
+<details>
+  <summary>Gemini CLI</summary>
+
+Gemini CLI로 서버를 추가한다.
+
+**프로젝트 범위:**
+
+```bash
+gemini mcp add narajangteo-bid npx -y @opendata-kr/narajangteo-bid-mcp@latest
+```
+
+**전역:**
+
+```bash
+gemini mcp add -s user narajangteo-bid npx -y @opendata-kr/narajangteo-bid-mcp@latest
+```
+
+또는 <a href="https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md#how-to-set-up-your-mcp-server">MCP 가이드</a>를 따르고 위 config를 쓴다. `~/.gemini/settings.json`의 서버 정의 `env`에 `DATA_GO_KR_SERVICE_KEY`를 추가한다.
+
+</details>
+
+<details>
+  <summary>Gemini Code Assist</summary>
+  <a href="https://cloud.google.com/gemini/docs/codeassist/use-agentic-chat-pair-programmer#configure-mcp-servers">MCP 설정 가이드</a>를 따르고 위 config를 사용한다.
+</details>
+
+<details>
+  <summary>Grok Build CLI</summary>
+
+```bash
+grok mcp add narajangteo-bid npx -y @opendata-kr/narajangteo-bid-mcp@latest
+```
+
+이후 생성된 설정의 `env`(또는 셸 환경변수)에 `DATA_GO_KR_SERVICE_KEY`를 추가한다. 더 많은 옵션은 <a href="https://docs.x.ai/build/features/skills-plugins-marketplaces">문서</a> 참고.
+
+</details>
+
+<details>
+  <summary>JetBrains AI Assistant & Junie</summary>
+
+`Settings | Tools | AI Assistant | Model Context Protocol (MCP)` → `Add`에서 위 config를 사용한다.
+Junie도 같은 방식으로 `Settings | Tools | Junie | MCP Settings` → `Add`에서 위 config를 사용한다.
+
+</details>
+
+<details>
+  <summary>Katalon Studio</summary>
+
+Katalon StudioAssist는 MCP 프록시를 통해 stdio 서버를 연결한다.
+
+**1단계:** <a href="https://docs.katalon.com/katalon-studio/studioassist/mcp-servers/setting-up-mcp-proxy-for-stdio-mcp-servers">MCP 프록시 설정 가이드</a>로 프록시를 설치한다.
+
+**2단계:** 프록시로 서버를 띄운다(같은 셸에 `DATA_GO_KR_SERVICE_KEY`를 export 한 상태):
+
+```bash
+DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamablehttp --port 8080 -- npx -y @opendata-kr/narajangteo-bid-mcp@latest
+```
+
+**3단계:** StudioAssist에 다음 설정으로 서버를 추가한다:
+
+- **Connection URL:** `http://127.0.0.1:8080/mcp`
+- **Transport type:** `HTTP`
+
+</details>
+
+<details>
+  <summary>Kiro</summary>
+
+**Kiro Settings**에서 `Configure MCP` → `Open Workspace or User MCP Config` → 위 config를 사용한다.
+
+또는 **Activity Bar** → `Kiro` → `MCP Servers` → `Open MCP Config`에서 위 config를 사용한다.
+
+</details>
+
+<details>
+  <summary>Mistral Vibe</summary>
+
+`~/.vibe/config.toml`에 추가한다:
+
+```toml
+[[mcp_servers]]
+name = "narajangteo-bid"
+transport = "stdio"
+command = "npx"
+args = ["-y", "@opendata-kr/narajangteo-bid-mcp@latest"]
+env = { DATA_GO_KR_SERVICE_KEY = "발급받은_Decoding_키" }
+```
+
+</details>
+
+<details>
+  <summary>OpenCode</summary>
+
+`opencode.json`에 추가한다. 없으면 `~/.config/opencode/opencode.json`에 만든다 (<a href="https://opencode.ai/docs/mcp-servers">가이드</a>):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "narajangteo-bid": {
+      "type": "local",
+      "command": ["npx", "-y", "@opendata-kr/narajangteo-bid-mcp@latest"],
+      "environment": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+  <summary>Qoder</summary>
+
+**Qoder Settings**에서 `MCP Server` → `+ Add` → 위 config를 사용한다.
+
+또는 <a href="https://docs.qoder.com/user-guide/chat/model-context-protocol">MCP 가이드</a>를 따르고 위 config를 쓴다.
+
+</details>
+
+<details>
+  <summary>Qoder CLI</summary>
+
+Qoder CLI로 서버를 추가한다 (<a href="https://docs.qoder.com/cli/using-cli#mcp-servers">가이드</a>):
+
+**프로젝트 범위:**
+
+```bash
+qodercli mcp add narajangteo-bid -- npx @opendata-kr/narajangteo-bid-mcp@latest
+```
+
+**전역:**
+
+```bash
+qodercli mcp add -s user narajangteo-bid -- npx @opendata-kr/narajangteo-bid-mcp@latest
+```
+
+이후 생성된 설정의 `env`(또는 셸 환경변수)에 `DATA_GO_KR_SERVICE_KEY`를 추가한다.
+
+</details>
+
+<details>
+  <summary>Visual Studio</summary>
+
+**버튼으로 설치:**
+
+[<img src="https://img.shields.io/badge/Visual_Studio-Install-C16FDE?logo=visualstudio&logoColor=white" alt="Install in Visual Studio">](https://vs-open.link/mcp-install?%7B%22name%22%3A%22narajangteo-bid%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22%40opendata-kr%2Fnarajangteo-bid-mcp%40latest%22%5D%7D)
+
+> 버튼은 키를 담지 못한다. 설치 후 서버 설정의 `env`에 `DATA_GO_KR_SERVICE_KEY`를 추가한다.
+
+</details>
+
+<details>
+  <summary>Warp</summary>
+
+`Settings | AI | Manage MCP Servers` → `+ Add`에서 [MCP 서버를 추가](https://docs.warp.dev/knowledge-and-collaboration/mcp#adding-an-mcp-server)하고 위 config를 사용한다.
+
+</details>
+
+<details>
+  <summary>Windsurf</summary>
+  <a href="https://docs.windsurf.com/windsurf/cascade/mcp#mcp-config-json">MCP 설정 가이드</a>를 따르고 위 config를 사용한다. Windsurf는 `mcpServers` 키를 쓴다(`~/.codeium/windsurf/mcp_config.json`).
+</details>
+
+<details>
+  <summary>Zed</summary>
+
+`~/.config/zed/settings.json`에 추가한다(스키마는 Zed 버전에 따라 다를 수 있으니 <a href="https://zed.dev/docs/ai/mcp">Zed 공식 문서</a>를 확인):
+
+```json
+{
+  "context_servers": {
+    "narajangteo-bid": {
+      "command": { "path": "npx", "args": ["-y", "@opendata-kr/narajangteo-bid-mcp@latest"] },
+      "env": { "DATA_GO_KR_SERVICE_KEY": "발급받은_Decoding_키" }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+  <summary>ChatGPT · 원격 전용 클라이언트</summary>
+
+ChatGPT Developer Mode처럼 **원격(HTTPS) MCP만 지원하는 클라이언트**는 로컬 stdio 서버를 직접 붙일 수 없다. stdio→HTTP 브리지(`mcp-proxy`)로 이 서버를 HTTP로 띄우고 공개 HTTPS 엔드포인트(리버스 프록시·터널·호스팅)로 노출한 뒤, 그 URL을 커넥터로 등록한다.
+
+```bash
+DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamablehttp --port 8080 -- npx -y @opendata-kr/narajangteo-bid-mcp@latest
+```
+
+`http://127.0.0.1:8080/mcp`를 공개 HTTPS로 노출하는 것은 사용자 몫이다. (`mcp-remote`는 반대로 stdio 클라이언트를 원격 서버에 붙일 때 쓰는 도구라 여기엔 맞지 않는다.)
+
+</details>
 
 ### 발견성
 
