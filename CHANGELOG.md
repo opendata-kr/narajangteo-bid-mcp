@@ -2,6 +2,14 @@
 
 이 프로젝트의 주요 변경 사항을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르고, 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [0.1.1](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.1.0...v0.1.1) (2026-07-06)
+
+
+### Documentation
+
+* **readme:** MCP 클라이언트 설정을 클라이언트 중립 매트릭스로 재구성 ([022ab91](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/022ab91cdf26b3ee1f6c4ef258d56770f31dd116))
+* 뱃지 정비 및 CHANGELOG를 0.1.0 릴리스 기준으로 정정 ([4ce6bca](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/4ce6bca3010f295f19b1ae280607f012ba4f82c4))
+
 ## [0.1.0] - 2026-07-06
 
 ### Added
