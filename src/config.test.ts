@@ -6,7 +6,7 @@ describe("loadConfig", () => {
     const c = loadConfig({ BID_SERVICE_KEY: "abc123" });
     expect(c.serviceKey).toBe("abc123");
     expect(c.baseUrl).toBe(
-      "http://apis.data.go.kr/1230000/ad/BidPublicInfoService",
+      "https://apis.data.go.kr/1230000/ad/BidPublicInfoService",
     );
   });
 

@@ -4,7 +4,8 @@ export interface AppConfig {
   looksPreEncoded: boolean;
 }
 
-const BASE_URL = "http://apis.data.go.kr/1230000/ad/BidPublicInfoService";
+// 게이트웨이는 https를 제공한다. ServiceKey가 크레덴셜이므로 평문(http) 대신 https로 전송한다.
+const BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService";
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   const serviceKey = env.BID_SERVICE_KEY?.trim();
