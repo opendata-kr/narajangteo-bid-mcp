@@ -1,11 +1,10 @@
 import { z } from "zod";
-import { callOperation, type OperationResult } from "../api/client.js";
+import type { DataGoKrClient, OperationResult } from "@opendata-kr/core";
 import {
   ALL_BID_KINDS,
   type BidKind,
   searchOperation,
 } from "../api/endpoints.js";
-import type { AppConfig } from "../config.js";
 import { formatItems } from "../format.js";
 import type { BidNotice } from "../api/types.js";
 
@@ -56,16 +55,10 @@ export interface SearchResult {
   results: Partial<Record<BidKind, KindResult>>;
 }
 
-export interface SearchDeps {
-  callFn?: typeof callOperation;
-}
-
 export async function runSearch(
-  config: AppConfig,
+  client: DataGoKrClient,
   args: SearchArgs,
-  deps: SearchDeps = {},
 ): Promise<SearchResult> {
-  const callFn = deps.callFn ?? callOperation;
   const kinds = args.bidKind ?? [...ALL_BID_KINDS];
 
   const params: Record<string, string | number | undefined> = {
@@ -85,7 +78,7 @@ export async function runSearch(
   }
 
   const settled = await Promise.allSettled(
-    kinds.map((kind) => callFn(config, searchOperation(kind), { ...params })),
+    kinds.map((kind) => client.call(searchOperation(kind), { ...params })),
   );
 
   const results: Partial<Record<BidKind, KindResult>> = {};

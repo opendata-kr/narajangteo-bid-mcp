@@ -1,5 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { AppConfig } from "./config.js";
+import type { DataGoKrClient } from "@opendata-kr/core";
 import {
   getNoticeInputShape,
   runGetNotice,
@@ -20,7 +20,7 @@ function textResult(payload: unknown, isError = false) {
   };
 }
 
-export function createServer(config: AppConfig): McpServer {
+export function createServer(client: DataGoKrClient): McpServer {
   const server = new McpServer({
     name: "narajangteo-bid-mcp",
     version: "0.0.0",
@@ -35,7 +35,7 @@ export function createServer(config: AppConfig): McpServer {
     },
     async (args) => {
       try {
-        const result = await runSearch(config, args as SearchArgs);
+        const result = await runSearch(client, args as SearchArgs);
         return textResult(result);
       } catch (err) {
         return textResult(
@@ -55,7 +55,7 @@ export function createServer(config: AppConfig): McpServer {
     },
     async (args) => {
       try {
-        const result = await runGetNotice(config, args as GetNoticeArgs);
+        const result = await runGetNotice(client, args as GetNoticeArgs);
         return textResult(result);
       } catch (err) {
         return textResult(

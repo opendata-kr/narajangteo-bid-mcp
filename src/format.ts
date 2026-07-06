@@ -1,10 +1,5 @@
-import type { BidNotice, RawApiResponse, RawItem } from "./api/types.js";
-
-export function extractItems(
-  body: RawApiResponse["response"]["body"],
-): RawItem[] {
-  return Array.isArray(body.items) ? body.items : [];
-}
+import type { RawItem } from "@opendata-kr/core";
+import type { BidNotice } from "./api/types.js";
 
 export function formatItem(raw: RawItem): BidNotice {
   const pick = (k: string): string => raw[k] ?? "";

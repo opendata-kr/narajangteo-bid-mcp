@@ -11,6 +11,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: latest
         version: 1.29.0(zod@4.4.3)
+      '@opendata-kr/core':
+        specifier: link:../core
+        version: link:../core
       zod:
         specifier: latest
         version: 4.4.3

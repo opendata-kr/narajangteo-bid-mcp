@@ -39,6 +39,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
+    "@opendata-kr/core": "link:../core",
     "zod": "latest"
   },
   "devDependencies": {

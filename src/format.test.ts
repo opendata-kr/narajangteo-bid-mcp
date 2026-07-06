@@ -1,19 +1,22 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { RawApiResponse } from "./api/types.js";
-import { extractItems, formatItem, formatItems } from "./format.js";
+import type { RawItem } from "@opendata-kr/core";
+import { formatItem, formatItems } from "./format.js";
 
-function loadFixture(name: string): RawApiResponse {
+interface Fixture {
+  response: { body: { items: RawItem[] } };
+}
+
+function loadFixture(name: string): Fixture {
   const url = new URL(`../tests/fixtures/${name}`, import.meta.url);
-  return JSON.parse(readFileSync(fileURLToPath(url), "utf8")) as RawApiResponse;
+  return JSON.parse(readFileSync(fileURLToPath(url), "utf8")) as Fixture;
 }
 
 describe("format", () => {
   it("원본 item을 핵심 필드로 정제한다", () => {
     const fx = loadFixture("search-cnstwk.json");
-    const items = extractItems(fx.response.body);
-    const first = formatItem(items[0]!);
+    const first = formatItem(fx.response.body.items[0]!);
     expect(first.bidNtceNo).toBe("R25BK00932003");
     expect(first.bidNtceNm).toBe("문성고등학교 비탈면공사 수의계약 안내공고");
     expect(first.presmptPrce).toBe("180645355");
@@ -27,14 +30,9 @@ describe("format", () => {
     expect(result.dminsttNm).toBe("");
   });
 
-  it("빈 문자열 items를 빈 배열로 해석한다", () => {
-    const fx = loadFixture("no-data.json");
-    expect(extractItems(fx.response.body)).toEqual([]);
-  });
-
   it("formatItems는 배열을 매핑한다", () => {
     const fx = loadFixture("search-cnstwk.json");
-    const out = formatItems(extractItems(fx.response.body));
+    const out = formatItems(fx.response.body.items);
     expect(out).toHaveLength(2);
     expect(out[1]!.bidNtceNo).toBe("R25BK00932010");
   });

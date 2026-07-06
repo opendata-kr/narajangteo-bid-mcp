@@ -1,11 +1,10 @@
 import { z } from "zod";
-import { callOperation } from "../api/client.js";
+import type { DataGoKrClient } from "@opendata-kr/core";
 import {
   ALL_BID_KINDS,
   type BidKind,
   listOperation,
 } from "../api/endpoints.js";
-import type { AppConfig } from "../config.js";
 import { formatItem } from "../format.js";
 import type { BidNotice } from "../api/types.js";
 
@@ -26,21 +25,15 @@ export interface GetNoticeResult {
   searchedKinds: BidKind[];
 }
 
-export interface GetNoticeDeps {
-  callFn?: typeof callOperation;
-}
-
 export async function runGetNotice(
-  config: AppConfig,
+  client: DataGoKrClient,
   args: GetNoticeArgs,
-  deps: GetNoticeDeps = {},
 ): Promise<GetNoticeResult> {
-  const callFn = deps.callFn ?? callOperation;
   const kinds: BidKind[] = args.bidKind ? [args.bidKind] : [...ALL_BID_KINDS];
   const params = { inqryDiv: "2", bidNtceNo: args.bidNtceNo, numOfRows: 10, pageNo: 1 };
 
   const settled = await Promise.allSettled(
-    kinds.map((kind) => callFn(config, listOperation(kind), { ...params })),
+    kinds.map((kind) => client.call(listOperation(kind), { ...params })),
   );
 
   const errorMessages: string[] = [];
