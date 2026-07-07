@@ -4,8 +4,9 @@ import { runGetNotice } from "./getNotice.js";
 
 function makeClient(
   callImpl: (op: string, params?: Params) => Promise<OperationResult>,
+  serviceKeyLooksPreEncoded = false,
 ): DataGoKrClient {
-  return { serviceKeyLooksPreEncoded: false, call: vi.fn(callImpl) };
+  return { serviceKeyLooksPreEncoded, call: vi.fn(callImpl) };
 }
 
 describe("runGetNotice", () => {
@@ -84,5 +85,23 @@ describe("runGetNotice", () => {
     });
     const out = await runGetNotice(client, { bidNtceNo: "R25" }); // 전 kind
     expect(out.found).toBe(true);
+  });
+
+  it("사전인코딩 키 + HTTP 401이면 errors에 Decoding 힌트가 붙는다", async () => {
+    const client = makeClient(async (): Promise<OperationResult> => {
+      throw new Error("data.go.kr HTTP 401 오류 (operation=x)");
+    }, true);
+    const r = await runGetNotice(client, { bidNtceNo: "X" });
+    expect(r.found).toBe(false);
+    expect(r.errors.some((m) => m.includes("Decoding 인증키"))).toBe(true);
+  });
+
+  it("사전인코딩이 아니면 HTTP 401에도 힌트가 붙지 않는다", async () => {
+    const client = makeClient(async (): Promise<OperationResult> => {
+      throw new Error("data.go.kr HTTP 401 오류 (operation=x)");
+    }, false);
+    const r = await runGetNotice(client, { bidNtceNo: "X" });
+    expect(r.found).toBe(false);
+    expect(r.errors.some((m) => m.includes("Decoding 인증키"))).toBe(false);
   });
 });

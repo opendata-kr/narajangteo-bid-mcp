@@ -109,6 +109,11 @@ export async function runSearch(
 
   const spanDays =
     (parseYmd(endDate!).getTime() - parseYmd(startDate!).getTime()) / 86400000;
+  if (spanDays < 0) {
+    throw new Error(
+      "startDate가 endDate보다 뒤입니다. 순서를 확인하세요.",
+    );
+  }
   if (spanDays > MAX_WINDOW_DAYS) {
     throw new Error(
       "조회창은 최대 약 1개월(31일)입니다. startDate와 endDate 간격을 좁혀 조회하세요.",

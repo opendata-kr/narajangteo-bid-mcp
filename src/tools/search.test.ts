@@ -204,4 +204,16 @@ describe("runSearch", () => {
     ).resolves.toBeDefined();
     expect(client.call).toHaveBeenCalledTimes(1);
   });
+
+  it("startDate가 endDate보다 뒤면 에러", async () => {
+    const client = makeClient({});
+    await expect(
+      runSearch(client, {
+        startDate: "20260607",
+        endDate: "20260601",
+        bidKind: ["thng"],
+      }),
+    ).rejects.toThrow(/순서|뒤/);
+    expect(client.call).not.toHaveBeenCalled();
+  });
 });

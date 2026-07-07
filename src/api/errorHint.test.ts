@@ -24,4 +24,12 @@ describe("withKeyHint", () => {
     const msg = withKeyHint({ serviceKeyLooksPreEncoded: true }, "타임아웃");
     expect(msg).toBe("타임아웃");
   });
+
+  it("EPIPE 같은 문자열엔 힌트를 붙이지 않는다(IP 오매치 방지)", () => {
+    const msg = withKeyHint(
+      { serviceKeyLooksPreEncoded: true },
+      "write EPIPE",
+    );
+    expect(msg).toBe("write EPIPE");
+  });
 });

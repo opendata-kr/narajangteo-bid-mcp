@@ -2,7 +2,7 @@ export interface KeyHintClient {
   readonly serviceKeyLooksPreEncoded?: boolean;
 }
 
-const AUTH_LIKE = /HTTP 40[13]|\[3\d\]|SERVICE_KEY|인증|IP/i;
+const AUTH_LIKE = /HTTP 40[13]|\[3\d\]|SERVICE_KEY|인증/i;
 
 export function withKeyHint(client: KeyHintClient, message: string): string {
   if (client.serviceKeyLooksPreEncoded && AUTH_LIKE.test(message)) {
