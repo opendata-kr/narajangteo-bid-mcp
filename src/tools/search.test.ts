@@ -76,4 +76,108 @@ describe("runSearch", () => {
     expect("error" in r.results.cnstwk!).toBe(true);
     expect("items" in r.results.servc!).toBe(true);
   });
+
+  it("날짜 미지정이어도 inqryDiv=1 + 기본 윈도우 전송", async () => {
+    const client: DataGoKrClient = {
+      serviceKeyLooksPreEncoded: false,
+      call: vi.fn(
+        async (_op: string, _params?: Params): Promise<OperationResult> => ({
+          totalCount: 0,
+          pageNo: 1,
+          items: [],
+        }),
+      ),
+    };
+    await runSearch(client, { keyword: "관로", bidKind: ["thng"] });
+    const seen = (client.call as ReturnType<typeof vi.fn>).mock.calls[0]![1] as Params;
+    expect(seen.inqryDiv).toBe("1");
+    expect(seen.inqryBgnDt).toMatch(/^\d{12}$/);
+    expect(seen.inqryEndDt).toMatch(/^\d{12}$/);
+  });
+
+  it("etc는 기본 집합에서 제외, 명시 지정 시에만 호출", async () => {
+    const client = makeClient({
+      cnstwk: { totalCount: 0, pageNo: 1, items: [] },
+      servc: { totalCount: 0, pageNo: 1, items: [] },
+      thng: { totalCount: 0, pageNo: 1, items: [] },
+      frgcpt: { totalCount: 0, pageNo: 1, items: [] },
+    });
+    const r = await runSearch(client, {});
+    expect(Object.keys(r.results)).not.toContain("etc");
+    expect(client.call).toHaveBeenCalledTimes(4);
+  });
+
+  it("etc는 명시 지정 시에만 호출한다", async () => {
+    const client = makeClient({
+      etc: { totalCount: 1, pageNo: 1, items: [{ bidNtceNo: "E1" }] },
+    });
+    const r = await runSearch(client, { bidKind: ["etc"] });
+    expect(Object.keys(r.results)).toContain("etc");
+    expect(client.call).toHaveBeenCalledTimes(1);
+  });
+
+  it("demandInstitution은 dminsttNm으로 전송", async () => {
+    const client: DataGoKrClient = {
+      serviceKeyLooksPreEncoded: false,
+      call: vi.fn(
+        async (_op: string, _params?: Params): Promise<OperationResult> => ({
+          totalCount: 0,
+          pageNo: 1,
+          items: [],
+        }),
+      ),
+    };
+    await runSearch(client, { demandInstitution: "조달청", bidKind: ["thng"] });
+    const seen = (client.call as ReturnType<typeof vi.fn>).mock.calls[0]![1] as Params;
+    expect(seen.dminsttNm).toBe("조달청");
+  });
+
+  it("endDate만 지정 시 윈도우가 역전되지 않는다", async () => {
+    const client: DataGoKrClient = {
+      serviceKeyLooksPreEncoded: false,
+      call: vi.fn(
+        async (_op: string, _params?: Params): Promise<OperationResult> => ({
+          totalCount: 0,
+          pageNo: 1,
+          items: [],
+        }),
+      ),
+    };
+    await runSearch(client, { endDate: "20260601", bidKind: ["thng"] });
+    const seen = (client.call as ReturnType<typeof vi.fn>).mock.calls[0]![1] as Params;
+    expect(seen.inqryEndDt).toBe("202606012359");
+    expect(String(seen.inqryBgnDt) < String(seen.inqryEndDt)).toBe(true);
+  });
+
+  it("startDate만 지정 시 윈도우가 역전되지 않는다", async () => {
+    const client: DataGoKrClient = {
+      serviceKeyLooksPreEncoded: false,
+      call: vi.fn(
+        async (_op: string, _params?: Params): Promise<OperationResult> => ({
+          totalCount: 0,
+          pageNo: 1,
+          items: [],
+        }),
+      ),
+    };
+    await runSearch(client, { startDate: "20260601", bidKind: ["thng"] });
+    const seen = (client.call as ReturnType<typeof vi.fn>).mock.calls[0]![1] as Params;
+    expect(seen.inqryBgnDt).toBe("202606010000");
+    expect(String(seen.inqryEndDt) > String(seen.inqryBgnDt)).toBe(true);
+    expect(seen.inqryEndDt).toBe("202607010000".slice(0, 8) + "2359");
+  });
+
+  it("잘못된 날짜 포맷은 에러", async () => {
+    const client = makeClient({});
+    await expect(
+      runSearch(client, { startDate: "2026-07-01", bidKind: ["thng"] }),
+    ).rejects.toThrow(/YYYYMMDD/);
+  });
+
+  it("endDate 잘못된 포맷도 에러", async () => {
+    const client = makeClient({});
+    await expect(
+      runSearch(client, { endDate: "2026/07/01", bidKind: ["thng"] }),
+    ).rejects.toThrow(/YYYYMMDD/);
+  });
 });
