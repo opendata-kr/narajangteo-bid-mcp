@@ -14,10 +14,12 @@ Claude Desktop 등 MCP 클라이언트에서 입찰공고를 자연어로 검색
 - "이번 주 올라온 용역 입찰 공고를 찾아줘"
 - "인천광역시에서 추정가격 5억 원 이상인 공사 입찰을 검색해줘"
 - "입찰공고번호 R25BK00932003 상세를 알려줘"
+- "그 공고의 기초금액과 참가 가능 지역을 알려줘"
+- "그 공고에 첨부된 파일 목록을 보여줘"
 
 ## 특징
 
-- **4개 업무구분 병렬 검색**: 공사/용역/물품/외자를 한 번에 조회한다. 업무구분 미지정 시 전 구분을 동시 검색한다.
+- **4개 업무구분 병렬 검색**: 공사/용역/물품/외자를 한 번에 조회한다. 업무구분 미지정 시 기타(etc)를 제외한 4구분(공사/용역/물품/외자)을 동시 검색하며, 기타공고는 `bidKind`에 `etc`를 명시한다.
 - **부분 실패 표면화**: 일부 구분 조회가 실패해도 나머지 결과를 반환하고, 실패한 구분은 오류 메시지로 드러낸다(조용한 누락 없음).
 - **data.go.kr 에러코드 한국어화**: 인증키 만료, 트래픽 초과 등 결과코드를 조치 가능한 한국어 메시지로 정규화한다.
 - **이중 인코딩 방어**: Encoding 키를 잘못 넣으면 경고하고, 요청은 한 번만 인코딩한다.
@@ -449,42 +451,149 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 
 ## 도구
 
-두 도구 모두 읽기 전용 조회다.
+8개 도구 모두 읽기 전용 조회다. 업무구분·항목별 병렬 조회 도구는 `results`에 조회 단위(업무구분 또는 항목 라벨)마다 성공 시 `{ status: "ok", totalCount, items }`, 실패 시 `{ status: "error", error }`를 담는다. 일부가 실패해도 나머지 결과는 반환하며(부분 실패 표면화), `anySucceeded`는 하나라도 성공했는지를 나타낸다.
+
+| 도구 | 설명 |
+|---|---|
+| `search_bid_notices` | 키워드·기간·기관·지역·업종·추정가격으로 입찰공고 검색 |
+| `get_bid_notice` | 입찰공고번호로 단건 상세 조회 |
+| `get_bid_basis_amount` | 기초금액·평가기준금액·예비가격범위율 조회 |
+| `get_bid_evaluation` | 낙찰가 산식A(합산항목)·평가주력분야 조회 |
+| `get_bid_change_history` | 공고 변경이력(정정·변경 항목) 조회 |
+| `get_bid_eligibility` | 면허제한·참가가능지역 조회 |
+| `get_bid_items` | 구매대상물품(품명·수량·단가 등) 조회 |
+| `get_bid_attachments` | e발주·혁신장터 RFP 첨부파일 조회 |
 
 ### `search_bid_notices`
 
-키워드, 기간, 기관, 지역, 업종, 추정가격으로 입찰공고를 검색한다. 업무구분 미지정 시 공사/용역/물품/외자를 병렬 검색한다.
+키워드, 기간, 기관, 지역, 업종, 추정가격으로 입찰공고를 검색한다. 업무구분 미지정 시 기타(etc) 제외 4구분(공사/용역/물품/외자)을 병렬 검색한다.
 
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
-| `bidKind` | `string[]` | 업무구분 배열: `cnstwk`(공사) `servc`(용역) `thng`(물품) `frgcpt`(외자). 미지정 시 전체 |
+| `bidKind` | `string[]` | 업무구분 배열: `cnstwk`(공사) `servc`(용역) `thng`(물품) `frgcpt`(외자) `etc`(기타). 미지정 시 기타 제외 4구분, 기타공고는 명시로 옵트인 |
 | `keyword` | `string` | 공고명 부분 검색 |
-| `startDate` | `string` | 공고게시 시작일 `YYYYMMDD` |
+| `startDate` | `string` | 공고게시 시작일 `YYYYMMDD`. 미지정 시 최근 30일 자동 적용 |
 | `endDate` | `string` | 공고게시 종료일 `YYYYMMDD` |
-| `institution` | `string` | 공고/수요 기관명 |
-| `region` | `string` | 참가 지역명 (예: 인천광역시) |
+| `institution` | `string` | 공고기관명 |
+| `demandInstitution` | `string` | 수요기관명 |
+| `region` | `string` | 참가제한지역명 (예: 인천광역시) |
 | `industry` | `string` | 업종명 |
 | `minPrice` | `number` | 추정가격 하한(원) |
 | `maxPrice` | `number` | 추정가격 상한(원) |
 | `page` | `number` | 페이지 번호(기본 1) |
 | `pageSize` | `number` | 페이지당 건수(기본 10, 최대 100) |
 
-반환: `{ query, results }`. `results`는 업무구분별로 `{ totalCount, items }`를, 실패 시 해당 구분에 `{ error }`를 담는다.
+조회창(`startDate`~`endDate`)은 최대 31일이다. 하나만 지정하면 그 날짜를 기준으로 30일 창을 채운다.
+
+반환: `{ query, anySucceeded, results }`. `results`는 업무구분별 `BidNotice[]`를 담는다.
 
 ### `get_bid_notice`
 
-입찰공고번호로 단건 조회한다. 업무구분 미지정 시 전 구분에서 찾는다.
+입찰공고번호로 단건 조회한다. 업무구분 미지정 시 기타(etc)를 제외한 4구분에서 순차 조회하며, 기타공고는 `bidKind`에 `etc`를 명시한다.
 
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
 | `bidNtceNo` | `string` | 입찰공고번호 (예: `R25BK00932003`). 필수 |
-| `bidKind` | `string` | 업무구분. 미지정 시 전 구분에서 조회 |
+| `bidKind` | `string` | 업무구분(`cnstwk`·`servc`·`thng`·`frgcpt`·`etc`). 미지정 시 기타 제외 4구분에서 순차 조회, 기타공고는 `etc` 명시 |
 
-반환: `{ found, bidKind, notice, searchedKinds }`. 찾으면 `found: true`와 `notice`(아래 응답 필드), 못 찾으면 `found: false`.
+반환: `{ found, bidKind, notice, searchedKinds, errors }`. 찾으면 `found: true`와 `notice`(`BidNotice`), 못 찾으면 `found: false`. `errors`는 조회 중 발생한 오류 메시지다.
 
-## 응답 필드 (`BidNotice`)
+### `get_bid_basis_amount`
 
-`bidNtceNo`(공고번호), `bidNtceNm`(공고명), `ntceInsttNm`(공고기관), `dminsttNm`(수요기관), `bidNtceDt`(공고일시), `bidClseDt`(마감일시), `opengDt`(개찰일시), `presmptPrce`(추정가격), `bidNtceDtlUrl`(상세 URL).
+입찰공고번호로 기초금액·평가기준금액·예비가격범위율을 조회한다. 기초금액은 물품·공사·용역 3구분만 존재한다(외자·기타 없음).
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `bidNtceNo` | `string` | 입찰공고번호. 필수 |
+| `bidKind` | `string` | 업무구분(`thng`=물품 `cnstwk`=공사 `servc`=용역). 미지정 시 3구분 병렬 조회 |
+
+반환: `{ bidNtceNo, anySucceeded, results }`. `results`는 업무구분별 `BidBasisAmount[]`를 담는다.
+
+### `get_bid_evaluation`
+
+입찰공고번호로 낙찰가 산정 산식A(국민연금·건강보험료 등 합산항목)와 평가대상 주력분야를 조회한다. 업무구분 구분 없이 단일 조회한다.
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `bidNtceNo` | `string` | 입찰공고번호. 필수 |
+
+반환: `{ bidNtceNo, anySucceeded, results }`. `results`는 `priceFormula`(산식A)와 `targetField`(평가주력분야) 두 키로 `BidEvaluation[]`를 담는다.
+
+### `get_bid_change_history`
+
+입찰공고번호로 공고의 변경이력(정정·변경 항목, 변경 전/후 값)을 조회한다. 변경이력은 물품·공사·용역 3구분만 존재한다(외자·기타 없음). 변경 이력이 없는 공고는 빈 결과를 반환한다.
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `bidNtceNo` | `string` | 입찰공고번호. 필수 |
+| `bidKind` | `string` | 업무구분(`thng`=물품 `cnstwk`=공사 `servc`=용역). 미지정 시 3구분 병렬 조회 |
+
+반환: `{ bidNtceNo, anySucceeded, results }`. `results`는 업무구분별 `BidChange[]`를 담는다.
+
+### `get_bid_eligibility`
+
+입찰공고번호와 공고차수로 면허제한과 참가가능지역을 조회한다. 면허제한·참가가능지역은 공고차수 단위로 갈리므로 `bidNtceOrd`를 정확히 넘겨야 한다.
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `bidNtceNo` | `string` | 입찰공고번호. 필수 |
+| `bidNtceOrd` | `string` | 입찰공고차수(예: `000`). `get_bid_notice` 결과의 `bidNtceOrd`에서 확인. 미지정 시 `000` |
+
+반환: `{ bidNtceNo, bidNtceOrd, anySucceeded, results }`. `results`는 `licenseLimit`(면허제한)과 `region`(참가가능지역) 두 키로 `BidEligibility[]`를 담는다.
+
+### `get_bid_items`
+
+입찰공고번호와 공고차수로 구매대상물품(품명·수량·단가·납품장소 등)을 조회한다. 구매대상물품은 물품·용역·외자 3구분만 존재한다(공사 없음).
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `bidNtceNo` | `string` | 입찰공고번호. 필수 |
+| `bidNtceOrd` | `string` | 입찰공고차수(예: `000`). `get_bid_notice` 결과의 `bidNtceOrd`에서 확인. 미지정 시 `000` |
+| `bidKind` | `string` | 업무구분(`thng`=물품 `servc`=용역 `frgcpt`=외자). 미지정 시 3구분 병렬 조회 |
+
+반환: `{ bidNtceNo, bidNtceOrd, anySucceeded, results }`. `results`는 업무구분별 `BidItem[]`를 담는다.
+
+### `get_bid_attachments`
+
+입찰공고번호로 e발주 첨부파일과 혁신장터 최종제안요청서(RFP) 첨부파일의 파일명·URL을 조회한다. 대부분 공고는 첨부파일이 비어 있으며, 파일 자체를 내려받지 않고 URL만 반환한다.
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `bidNtceNo` | `string` | 입찰공고번호. 필수 |
+
+반환: `{ bidNtceNo, anySucceeded, results }`. `results`는 `eorder`(e발주)와 `innovationRfp`(혁신장터 RFP) 두 키로 `BidAttachment[]`를 담는다.
+
+## 응답 필드
+
+아래 각 타입은 조회 키인 `bidNtceNo`(공고번호)·`bidNtceOrd`(공고차수, 있는 경우)를 함께 포함한다.
+
+### `BidNotice`
+
+`bidNtceNm`(공고명), `ntceInsttNm`(공고기관), `dminsttNm`(수요기관), `bidNtceDt`(공고일시), `bidClseDt`(마감일시), `opengDt`(개찰일시), `presmptPrce`(추정가격), `bidNtceDtlUrl`(상세 URL), `bidMethdNm`(입찰방법), `cntrctCnclsMthdNm`(계약체결방법), `bidPrtcptLmtYn`(투찰제한여부), `prtcptLmtRgnNm`(참가제한지역), `cmmnSpldmdMethdNm`(공동수급방식).
+
+### `BidBasisAmount`
+
+`bssamt`(기초금액), `evlBssAmt`(평가기준금액), `rsrvtnPrceRngBgnRate`(예비가격범위율 하한), `rsrvtnPrceRngEndRate`(예비가격범위율 상한), `bssamtOpenDt`(기초금액 개찰일시).
+
+### `BidEvaluation`
+
+`prearngPrceDcsnMthdNm`(예정가격결정방법), `bidPrceCalclAOpenDt`(산식A 개찰일시), `npnInsrprm`(국민연금보험료), `mrfnHealthInsrprm`(건강보험료), `qltyMngcst`(품질관리비), `sftyMngcst`(안전관리비), `sftyChckMngcst`(안전점검비), `tmpNm`(평가주력분야명).
+
+### `BidChange`
+
+`chgDt`(변경일시), `chgItemNm`(변경항목명), `bfchgVal`(변경전값), `afchgVal`(변경후값), `chgDataDivNm`(변경구분명).
+
+### `BidEligibility`
+
+`lcnsLmtNm`(면허제한명), `permsnIndstrytyList`(허용업종목록), `prtcptPsblRgnNm`(참가가능지역명).
+
+### `BidItem`
+
+`prdctClsfcNoNm`(품명), `dtilPrdctClsfcNoNm`(세부품명), `qty`(수량), `unit`(단위), `uprc`(단가), `dlvrPlce`(납품장소), `dlvrTmlmtDt`(납품기한).
+
+### `BidAttachment`
+
+`fileNm`(파일명), `fileUrl`(파일URL), `docDivNm`(문서구분명).
 
 ## 개발
 
