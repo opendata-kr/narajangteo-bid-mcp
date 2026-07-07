@@ -32,7 +32,7 @@ Claude Desktop 등 MCP 클라이언트에서 입찰공고를 자연어로 검색
   3. 같은 `DATA_GO_KR_SERVICE_KEY`는 같은 계정으로 활용신청한 다른 data.go.kr API에도 재사용된다.
 
 > [!TIP]
-> 공공데이터포털이 처음이라면 활용신청부터 인증키 복사까지 그림으로 따라 하는 **[data.go.kr 인증키 발급 가이드](docs/service-key-guide.md)**를 참고한다.
+> 공공데이터포털이 처음이라면 활용신청부터 인증키 복사까지 그림으로 따라 하는 [**data.go.kr 인증키 발급 가이드**](docs/service-key-guide.md)를 참고한다.
 
 > 서비스키는 반드시 **Decoding(원본)** 키를 넣는다. Encoding(`%2B` 등 포함) 키를 넣으면 이중 인코딩으로 인증 오류(코드 30)가 난다.
 
