@@ -180,4 +180,28 @@ describe("runSearch", () => {
       runSearch(client, { endDate: "2026/07/01", bidKind: ["thng"] }),
     ).rejects.toThrow(/YYYYMMDD/);
   });
+
+  it("조회창이 31일을 초과하면 에러", async () => {
+    const client = makeClient({});
+    await expect(
+      runSearch(client, {
+        startDate: "20260401",
+        endDate: "20260607",
+        bidKind: ["thng"],
+      }),
+    ).rejects.toThrow(/1개월|31일/);
+    expect(client.call).not.toHaveBeenCalled();
+  });
+
+  it("조회창이 31일이면 정상 호출된다", async () => {
+    const client = makeClient({});
+    await expect(
+      runSearch(client, {
+        startDate: "20260507",
+        endDate: "20260607",
+        bidKind: ["thng"],
+      }),
+    ).resolves.toBeDefined();
+    expect(client.call).toHaveBeenCalledTimes(1);
+  });
 });

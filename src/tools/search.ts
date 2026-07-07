@@ -6,6 +6,7 @@ import { runOps, type OpOutcome } from "../api/runOps.js";
 import type { BidNotice } from "../api/types.js";
 
 const DEFAULT_WINDOW_DAYS = 30; // 라이브 확정 대상
+const MAX_WINDOW_DAYS = 31; // 라이브 확인: PPSSrch 조회창 상한(31일 ok, 37일↑ 불투명 오류)
 const YMD = /^\d{8}$/;
 
 // etc 제외(옵트인). 기본 검색 집합.
@@ -104,6 +105,14 @@ export async function runSearch(
     const now = new Date();
     endDate = ymd(now);
     startDate = ymd(new Date(now.getTime() - DEFAULT_WINDOW_DAYS * 86400000));
+  }
+
+  const spanDays =
+    (parseYmd(endDate!).getTime() - parseYmd(startDate!).getTime()) / 86400000;
+  if (spanDays > MAX_WINDOW_DAYS) {
+    throw new Error(
+      "조회창은 최대 약 1개월(31일)입니다. startDate와 endDate 간격을 좁혀 조회하세요.",
+    );
   }
 
   const params: Record<string, string | number | undefined> = {
