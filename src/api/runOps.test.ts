@@ -28,4 +28,29 @@ describe("runOps", () => {
     const { anySucceeded } = await runOps(client, [{ label: "a", op: "o", params: {} }], (r) => r);
     expect(anySucceeded).toBe(false);
   });
+
+  it("사전인코딩 키 + HTTP 401 에러면 Decoding 힌트가 붙는다", async () => {
+    const client = {
+      serviceKeyLooksPreEncoded: true,
+      call: async () => {
+        throw new Error("data.go.kr HTTP 401 오류 (operation=x)");
+      },
+    } as any;
+    const { results } = await runOps(client, [{ label: "a", op: "o", params: {} }], (r) => r);
+    const a = results.a as { status: "error"; error: string };
+    expect(a.status).toBe("error");
+    expect(a.error).toContain("Decoding 인증키");
+  });
+
+  it("사전인코딩 키가 아니면 HTTP 401 에러에도 힌트가 붙지 않는다", async () => {
+    const client = {
+      serviceKeyLooksPreEncoded: false,
+      call: async () => {
+        throw new Error("data.go.kr HTTP 401 오류 (operation=x)");
+      },
+    } as any;
+    const { results } = await runOps(client, [{ label: "a", op: "o", params: {} }], (r) => r);
+    const a = results.a as { status: "error"; error: string };
+    expect(a.error).not.toContain("Decoding 인증키");
+  });
 });

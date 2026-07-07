@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { DataGoKrClient } from "@opendata-kr/core";
 import { listOperation, type BidKind } from "../api/endpoints.js";
 import { formatItem } from "../format.js";
+import { withKeyHint } from "../api/errorHint.js";
 import type { BidNotice } from "../api/types.js";
 
 const DEFAULT_KINDS: BidKind[] = ["cnstwk", "servc", "thng", "frgcpt"];
@@ -34,7 +35,10 @@ export async function runGetNotice(client: DataGoKrClient, args: GetNoticeArgs):
       return { found: true, bidKind: kinds[i]!, notice: formatItem(s.value.items[0]!), searchedKinds: kinds, errors };
     }
     if (s.status === "rejected") {
-      const m = s.reason instanceof Error ? s.reason.message : String(s.reason);
+      const m = withKeyHint(
+        client,
+        s.reason instanceof Error ? s.reason.message : String(s.reason),
+      );
       if (!errors.includes(m)) errors.push(m);
     }
   }

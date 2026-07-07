@@ -1,4 +1,5 @@
 import type { DataGoKrClient, OperationResult, RawItem } from "@opendata-kr/core";
+import { withKeyHint } from "./errorHint.js";
 
 export type OpOutcome<T> =
   | { status: "ok"; totalCount: number; items: T[] }
@@ -28,7 +29,8 @@ export async function runOps<T>(
       anySucceeded = true;
     } else {
       const r = s.reason;
-      results[label] = { status: "error", error: r instanceof Error ? r.message : String(r) };
+      const msg = r instanceof Error ? r.message : String(r);
+      results[label] = { status: "error", error: withKeyHint(client, msg) };
     }
   });
   return { results, anySucceeded };

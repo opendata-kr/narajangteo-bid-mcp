@@ -40,6 +40,7 @@ import {
   runAttachments,
   type AttachmentsArgs,
 } from "./tools/attachments.js";
+import { withKeyHint } from "./api/errorHint.js";
 
 function textResult(payload: unknown, isError = false) {
   return {
@@ -53,12 +54,7 @@ function textResult(payload: unknown, isError = false) {
 // 인증계열 에러 + 사전인코딩 키 의심 시 Decoding 키 회복 안내를 덧붙인다.
 function errorText(err: unknown, client: DataGoKrClient) {
   const msg = err instanceof Error ? err.message : String(err);
-  const preEncoded = client.serviceKeyLooksPreEncoded === true;
-  const authish = /\[3\d\]|SERVICE_KEY|인증|IP/i.test(msg);
-  const hint = preEncoded && authish
-    ? " (인증 실패 시 Encoding 키의 이중 인코딩일 수 있습니다. data.go.kr의 Decoding 인증키를 SERVICE_KEY로 사용하세요.)"
-    : "";
-  return textResult({ error: msg + hint }, true);
+  return textResult({ error: withKeyHint(client, msg) }, true);
 }
 
 export function createServer(client: DataGoKrClient): McpServer {

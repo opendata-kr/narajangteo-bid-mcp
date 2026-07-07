@@ -120,4 +120,17 @@ describe("errorText 회복 메시지", () => {
     expect(text).toContain(NON_AUTH_ERR.message);
     expect(text).not.toContain("Decoding 인증키");
   });
+
+  it("사전인코딩 키 + HTTP 401 에러면 Decoding 키 안내를 덧붙인다", async () => {
+    const HTTP_401_ERR = new Error("data.go.kr HTTP 401 오류 (operation=x)");
+    const res = await callTool(
+      throwingClient(true, HTTP_401_ERR),
+      "get_bid_basis_amount",
+      { bidNtceNo: "R25BK00932003" },
+    );
+    expect(res.isError).toBe(true);
+    const text = (res.content as { type: string; text: string }[])[0]!.text;
+    expect(text).toContain(HTTP_401_ERR.message);
+    expect(text).toContain("Decoding 인증키");
+  });
 });
