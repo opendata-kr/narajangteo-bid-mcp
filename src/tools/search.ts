@@ -13,7 +13,9 @@ export const searchInputShape = {
   bidKind: z
     .array(z.enum(["cnstwk", "servc", "thng", "frgcpt"]))
     .optional()
-    .describe("업무구분 배열. 미지정 시 전 구분(공사/용역/물품/외자) 검색"),
+    .describe(
+      "업무구분 배열(cnstwk=공사, servc=용역, thng=물품, frgcpt=외자). 미지정 시 전 구분 병렬 검색",
+    ),
   keyword: z.string().optional().describe("공고명 부분 검색"),
   startDate: z.string().optional().describe("공고게시 시작일 YYYYMMDD"),
   endDate: z.string().optional().describe("공고게시 종료일 YYYYMMDD"),

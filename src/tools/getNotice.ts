@@ -13,7 +13,9 @@ export const getNoticeInputShape = {
   bidKind: z
     .enum(["cnstwk", "servc", "thng", "frgcpt"])
     .optional()
-    .describe("업무구분. 미지정 시 전 구분에서 조회"),
+    .describe(
+      "업무구분(cnstwk=공사, servc=용역, thng=물품, frgcpt=외자). 미지정 시 전 구분에서 조회",
+    ),
 };
 
 export type GetNoticeArgs = { bidNtceNo: string; bidKind?: BidKind };
