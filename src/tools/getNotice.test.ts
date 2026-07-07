@@ -39,13 +39,14 @@ describe("runGetNotice", () => {
     expect(r.searchedKinds).toHaveLength(4);
   });
 
-  it("모든 구분이 실패하면 found:false로 감추지 않고 오류를 던진다", async () => {
+  it("모든 구분이 실패하면 found:false이고 errors가 포함된다", async () => {
     const client = makeClient(async (): Promise<OperationResult> => {
       throw new Error("[30] 등록되지 않은 서비스키입니다.");
     });
-    await expect(
-      runGetNotice(client, { bidNtceNo: "X" }),
-    ).rejects.toThrow(/등록되지 않은 서비스키/);
+    const r = await runGetNotice(client, { bidNtceNo: "X" });
+    expect(r.found).toBe(false);
+    expect(r.errors).toHaveLength(1);
+    expect(r.errors[0]).toMatch(/등록되지 않은 서비스키/);
   });
 
   it("bidKind 지정 시 해당 구분만 조회한다", async () => {
@@ -59,5 +60,29 @@ describe("runGetNotice", () => {
     const r = await runGetNotice(client, { bidNtceNo: "R1", bidKind: "cnstwk" });
     expect(client.call).toHaveBeenCalledTimes(1);
     expect(r.bidKind).toBe("cnstwk");
+  });
+
+  it("bidNtceOrd 포함 반환", async () => {
+    const client = makeClient(
+      async (): Promise<OperationResult> => ({
+        totalCount: 1,
+        pageNo: 1,
+        items: [{ bidNtceNo: "R25", bidNtceOrd: "003", bidNtceNm: "공고" }],
+      }),
+    );
+    const out = await runGetNotice(client, { bidNtceNo: "R25", bidKind: "thng" });
+    expect(out.found).toBe(true);
+    expect(out.notice?.bidNtceOrd).toBe("003");
+  });
+
+  it("한 kind 에러여도 다른 kind found면 found 우선", async () => {
+    let n = 0;
+    const client = makeClient(async (): Promise<OperationResult> => {
+      n++;
+      if (n === 1) throw new Error("일시오류");
+      return { totalCount: 1, pageNo: 1, items: [{ bidNtceNo: "R25", bidNtceOrd: "1" }] };
+    });
+    const out = await runGetNotice(client, { bidNtceNo: "R25" }); // 전 kind
+    expect(out.found).toBe(true);
   });
 });

@@ -4,9 +4,6 @@ export const BID_KIND_LABEL: Record<BidKind, string> = {
   cnstwk: "공사", servc: "용역", thng: "물품", frgcpt: "외자", etc: "기타",
 };
 
-// 마이그레이션 호환용. Task 6에서 search/getNotice 재작성 완료 후 제거.
-export const ALL_BID_KINDS: readonly BidKind[] = ["cnstwk", "servc", "thng", "frgcpt"];
-
 // 기본조회/검색: 4종 + etc(옵트인). 기본 kind 집합엔 etc 제외(Task 5/6에서 제어).
 export const NOTICE_KINDS: readonly BidKind[] = ["cnstwk", "servc", "thng", "frgcpt", "etc"];
 export const BASIS_KINDS: readonly BidKind[] = ["thng", "cnstwk", "servc"];
