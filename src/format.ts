@@ -5,6 +5,7 @@ export function formatItem(raw: RawItem): BidNotice {
   const pick = (k: string): string => raw[k] ?? "";
   return {
     bidNtceNo: pick("bidNtceNo"),
+    bidNtceOrd: pick("bidNtceOrd"),
     bidNtceNm: pick("bidNtceNm"),
     ntceInsttNm: pick("ntceInsttNm"),
     dminsttNm: pick("dminsttNm"),
@@ -13,6 +14,11 @@ export function formatItem(raw: RawItem): BidNotice {
     opengDt: pick("opengDt"),
     presmptPrce: pick("presmptPrce"),
     bidNtceDtlUrl: pick("bidNtceDtlUrl"),
+    bidMethdNm: pick("bidMethdNm"),
+    cntrctCnclsMthdNm: pick("cntrctCnclsMthdNm"),
+    bidPrtcptLmtYn: pick("bidPrtcptLmtYn"),
+    prtcptLmtRgnNm: pick("prtcptLmtRgnNm"),
+    cmmnSpldmdMethdNm: pick("cmmnSpldmdMethdNm"),
   };
 }
 
