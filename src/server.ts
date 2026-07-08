@@ -40,7 +40,7 @@ import {
   runAttachments,
   type AttachmentsArgs,
 } from "./tools/attachments.js";
-import { withKeyHint } from "./api/errorHint.js";
+import { withKeyHint, errMessage } from "@opendata-kr/core";
 
 function textResult(payload: unknown, isError = false) {
   return {
@@ -53,8 +53,7 @@ function textResult(payload: unknown, isError = false) {
 
 // 인증계열 에러 + 사전인코딩 키 의심 시 Decoding 키 회복 안내를 덧붙인다.
 function errorText(err: unknown, client: DataGoKrClient) {
-  const msg = err instanceof Error ? err.message : String(err);
-  return textResult({ error: withKeyHint(client, msg) }, true);
+  return textResult({ error: withKeyHint(client, errMessage(err)) }, true);
 }
 
 export function createServer(client: DataGoKrClient): McpServer {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { DataGoKrClient } from "@opendata-kr/core";
+import { dateRangeParams, type DataGoKrClient } from "@opendata-kr/core";
 import { searchOperation, type BidKind } from "../api/endpoints.js";
 import { formatItem } from "../format.js";
 import { runOps, type OpOutcome } from "../api/runOps.js";
@@ -124,8 +124,7 @@ export async function runSearch(
     pageNo: args.page ?? 1,
     numOfRows: args.pageSize ?? 10,
     inqryDiv: "1", // 공고게시일시 (PPSSrch 필수)
-    inqryBgnDt: `${startDate}0000`,
-    inqryEndDt: `${endDate}2359`,
+    ...dateRangeParams(startDate, endDate),
     bidNtceNm: args.keyword,
     ntceInsttNm: args.institution,
     dminsttNm: args.demandInstitution,

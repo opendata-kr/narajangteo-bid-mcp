@@ -65,6 +65,25 @@ describe("runSearch", () => {
     expect(seen.inqryEndDt).toBe("202507052359");
   });
 
+  it("core dateRangeParams와 동일하게 시각을 채운 날짜 파라미터를 전송한다", async () => {
+    const client: DataGoKrClient = {
+      serviceKeyLooksPreEncoded: false,
+      call: vi.fn(
+        async (_op: string, _params?: Params): Promise<OperationResult> => ({
+          totalCount: 0,
+          pageNo: 1,
+          items: [],
+        }),
+      ),
+    };
+    const startDate = "20250701";
+    const endDate = "20250705";
+    await runSearch(client, { bidKind: ["thng"], startDate, endDate });
+    const seen = (client.call as ReturnType<typeof vi.fn>).mock.calls[0]![1] as Params;
+    expect(seen.inqryBgnDt).toBe(`${startDate}0000`);
+    expect(seen.inqryEndDt).toBe(`${endDate}2359`);
+  });
+
   it("한 업무구분 실패 시 나머지는 정상 반환한다", async () => {
     const client = makeClient({
       cnstwk: new Error("boom"),
