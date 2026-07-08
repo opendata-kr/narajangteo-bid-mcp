@@ -2,6 +2,14 @@
 
 이 프로젝트의 주요 변경 사항을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르고, 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [0.2.1](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.2.0...v0.2.1) (2026-07-08)
+
+
+### Bug Fixes
+
+* **api:** runOps를 core fanOut으로 재구현·인증힌트/에러축약 core 채택 ([b6c1ecb](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/b6c1ecb18013f310650ae91c0ca96c1fdf834a84))
+* **api:** 인증힌트/에러축약/날짜파라미터를 core로 일원화·로컬 errorHint 제거 ([a438c96](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/a438c96cb74bfe43c102a8246d3e5ed73d264bec))
+
 ## [0.2.0](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.1.2...v0.2.0) (2026-07-07)
 
 
