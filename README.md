@@ -448,10 +448,13 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 |---|---|---|---|---|
 | `DATA_GO_KR_SERVICE_KEY` | 예 | 예 | (없음) | 공공데이터포털 **Decoding(원본)** 인증키 |
 | `DATA_GO_KR_BASE_URL` | 아니오 | 아니오 | `https://apis.data.go.kr` | 게이트웨이 base 오버라이드 |
+| `DATA_GO_KR_DOWNLOAD_DIR` | 아니오 | 아니오 | `~/Downloads` | `download_attachments` 저장 기준 디렉터리. 공고번호별 하위폴더로 저장 |
+| `DATA_GO_KR_DOWNLOAD_TIMEOUT_MS` | 아니오 | 아니오 | `60000` | `download_attachments` 파일 다운로드 타임아웃(ms) |
+| `DATA_GO_KR_DOWNLOAD_MAX_BYTES` | 아니오 | 아니오 | `104857600` | `download_attachments` 파일당 다운로드 크기 상한(바이트, 기본 100MB) |
 
 ## 도구
 
-8개 도구 모두 읽기 전용 조회다. 업무구분·항목별 병렬 조회 도구는 `results`에 조회 단위(업무구분 또는 항목 라벨)마다 성공 시 `{ status: "ok", totalCount, items }`, 실패 시 `{ status: "error", error }`를 담는다. 일부가 실패해도 나머지 결과는 반환하며(부분 실패 표면화), `anySucceeded`는 하나라도 성공했는지를 나타낸다.
+9개 도구 중 8개는 읽기 전용 조회(`readOnlyHint: true`)다. `download_attachments`만 첨부 파일을 디스크에 저장하므로 읽기 전용이 아니다(`readOnlyHint: false`). 업무구분·항목별 병렬 조회 도구는 `results`에 조회 단위(업무구분 또는 항목 라벨)마다 성공 시 `{ status: "ok", totalCount, items }`, 실패 시 `{ status: "error", error }`를 담는다. 일부가 실패해도 나머지 결과는 반환하며(부분 실패 표면화), `anySucceeded`는 하나라도 성공했는지를 나타낸다.
 
 | 도구 | 설명 |
 |---|---|
@@ -462,7 +465,8 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 | `get_bid_change_history` | 공고 변경이력(정정·변경 항목) 조회 |
 | `get_bid_eligibility` | 면허제한·참가가능지역 조회 |
 | `get_bid_items` | 구매대상물품(품명·수량·단가 등) 조회 |
-| `get_bid_attachments` | e발주·혁신장터 RFP 첨부파일 조회 |
+| `get_bid_attachments` | e발주·혁신장터 RFP 첨부파일의 파일명·URL 조회 |
+| `download_attachments` | 첨부 파일을 디스크에 저장하고 HWPX·구형 HWP 본문 텍스트 추출 (파일 저장) |
 
 ### `search_bid_notices`
 
@@ -555,13 +559,31 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 
 ### `get_bid_attachments`
 
-입찰공고번호로 e발주 첨부파일과 혁신장터 최종제안요청서(RFP) 첨부파일의 파일명·URL을 조회한다. 대부분 공고는 첨부파일이 비어 있으며, 파일 자체를 내려받지 않고 URL만 반환한다.
+입찰공고번호로 e발주 첨부파일과 혁신장터 최종제안요청서(RFP) 첨부파일의 파일명·URL을 조회한다. 대부분 공고는 첨부파일이 비어 있으며, 파일 자체를 내려받지 않고 URL만 반환한다. 파일을 받아 본문을 읽으려면 `download_attachments`를 쓴다.
 
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
 | `bidNtceNo` | `string` | 입찰공고번호. 필수 |
 
 반환: `{ bidNtceNo, anySucceeded, results }`. `results`는 `eorder`(e발주)와 `innovationRfp`(혁신장터 RFP) 두 키로 `BidAttachment[]`를 담는다.
+
+### `download_attachments`
+
+첨부 파일을 디스크에 저장하고 HWPX·구형 HWP 본문 텍스트를 추출해 반환한다. `get_attachments`가 URL만 돌려주는 데 반해, 이 도구는 실제 파일 저장과 내용 읽기가 필요할 때 쓴다. 제안요청서·과업지시서 내용을 요약·질의응답할 때 유용하다.
+
+> [!IMPORTANT]
+> 이 도구는 읽기 전용이 아니다(`readOnlyHint: false`). 첨부를 `<저장 디렉터리>/<공고번호>/` 아래에 저장한다. 저장 위치는 `DATA_GO_KR_DOWNLOAD_DIR`(미설정 시 `~/Downloads`)로 정한다. 이미 저장된 파일은 재다운로드 없이 재사용하며, 갱신은 감지하지 않는다(최신본이 필요하면 공고 폴더를 지우고 다시 호출).
+
+HWPX와 구형 HWP만 텍스트를 추출하고, 그 외 포맷은 파일만 저장한다(원본 바이트는 응답에 담지 않는다).
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `bidNtceNo` | `string` | 입찰공고번호. 필수 |
+| `fileIndex` | `number` | 특정 첨부 하나의 전문을 페이지네이션할 때 `files` 배열 인덱스(0-base). 미지정 시 전 첨부의 앞부분 미리보기를 반환 |
+| `offset` | `number` | `fileIndex` 지정 시 그 첨부 텍스트의 시작 문자 오프셋(기본 0) |
+| `maxChars` | `number` | `fileIndex` 지정 시 반환 문자 상한(기본 50000). 미지정 프리뷰는 첨부당 3000자 |
+
+반환: `{ bidNtceNo, anySucceeded, resolveErrors?, files, truncatedFileList? }`. `files`는 첨부별 `DownloadedFile`(다운로드·추출 실패를 파일별로 표면화). 저장 성공 파일은 `savedPath`·`byteSize`·`format`(`hwpx`/`hwp`/`other`)·`extractStatus`(`full`/`preview`/`unsupported`/`error`)·`text`·`textLength`·`truncated`를 담는다. `truncated: true`는 다음 페이지가 남았다는 신호다(`offset`을 올려 이어 읽는다).
 
 ## 응답 필드
 

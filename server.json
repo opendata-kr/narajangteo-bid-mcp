@@ -29,6 +29,21 @@
           "name": "DATA_GO_KR_BASE_URL",
           "description": "게이트웨이 base URL 오버라이드",
           "default": "https://apis.data.go.kr"
+        },
+        {
+          "name": "DATA_GO_KR_DOWNLOAD_DIR",
+          "description": "download_attachments 저장 기준 디렉터리. 공고번호별 하위폴더로 저장한다. 미설정 시 ~/Downloads",
+          "default": "~/Downloads"
+        },
+        {
+          "name": "DATA_GO_KR_DOWNLOAD_TIMEOUT_MS",
+          "description": "download_attachments 파일 다운로드 타임아웃(밀리초)",
+          "default": "60000"
+        },
+        {
+          "name": "DATA_GO_KR_DOWNLOAD_MAX_BYTES",
+          "description": "download_attachments 파일당 다운로드 크기 상한(바이트, 기본 100MB)",
+          "default": "104857600"
         }
       ]
     }
