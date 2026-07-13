@@ -207,7 +207,7 @@ export function createServer(client: DataGoKrClient): McpServer {
     {
       title: "첨부파일 조회",
       description:
-        "입찰공고번호로 그 공고의 첨부파일 파일명·다운로드 URL을 조회한다. 공고 본문 규격첨부(공고문·규격서·제안요청서·과업지시서 등)를 주 소스로, e발주·혁신장터RFP 첨부를 함께 반환한다(results.notice·eorder·innovationRfp). 파일 목록·다운로드 URL만 필요할 때 쓰고, 실제 파일 저장·본문 텍스트 추출이 필요하면 download_attachments를 쓴다. 기초금액·참가자격 등 다른 세부정보는 get_bid_basis_amount·get_bid_eligibility를 쓴다. 파일 자체는 내려받지 않고 URL만 반환한다.",
+        "입찰공고번호로 그 공고의 첨부파일 파일명·다운로드 URL을 조회한다. 공고 본문 규격첨부(공고문·규격서·제안요청서·과업지시서 등)를 주 소스로, e발주·혁신장터RFP 첨부를 함께 반환한다(results.notice·eorder·innovationRfp). 첨부의 URL만 필요할 때 쓴다. 파일을 내려받아 목록(매니페스트)을 얻으려면 download_attachments를, 특정 파일의 본문 텍스트를 읽으려면 read_attachment를 쓴다. 기초금액·참가자격 등 다른 세부정보는 get_bid_basis_amount·get_bid_eligibility를 쓴다. 파일 자체는 내려받지 않고 URL만 반환한다.",
       inputSchema: attachmentsInputShape,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
