@@ -88,7 +88,7 @@ export type DownloadedFile =
       downloadStatus: "ok";
       savedPath: string;
       byteSize: number;
-      format: "hwpx" | "hwp" | "other";
+      format: "hwpx" | "hwp" | "doc" | "zip" | "other";
       extractStatus: "full" | "preview" | "unsupported" | "error";
       text: string;
       textLength: number;

@@ -72,4 +72,26 @@ describe("extractText", () => {
     expect(r.format).toBe("other");
     expect(r.status).toBe("unsupported");
   });
+
+  it(".zip은 내부 hwpx를 재귀 추출해 헤더와 함께 full 반환", async () => {
+    const enc = new TextEncoder();
+    const innerHwpx = zipSync({ "Contents/section0.xml": enc.encode("<p>제안요청</p>") });
+    const zip = zipSync({ "제안요청서.hwpx": innerHwpx, "스캔.pdf": enc.encode("%PDF") });
+    const filePath = join(dir, "공고파일.zip");
+    await writeFile(filePath, zip);
+    const r = await extractText(filePath, "공고파일.zip");
+    expect(r.format).toBe("zip");
+    expect(r.status).toBe("full");
+    expect(r.text).toContain("=== 제안요청서.hwpx ===");
+    expect(r.text).toContain("제안요청");
+    expect(r.text).toContain("=== 스캔.pdf ===\n(미지원 포맷)");
+  });
+
+  it(".doc는 doc 추출기로 라우팅한다(손상 입력은 error로 격리)", async () => {
+    const filePath = join(dir, "d.doc");
+    await writeFile(filePath, Buffer.from("not an ole doc", "utf8"));
+    const r = await extractText(filePath, "공고.doc");
+    expect(r.format).toBe("doc");
+    expect(r.status).toBe("error");
+  });
 });

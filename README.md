@@ -466,7 +466,7 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 | `get_bid_eligibility` | 면허제한·참가가능지역 조회 |
 | `get_bid_items` | 구매대상물품(품명·수량·단가 등) 조회 |
 | `get_bid_attachments` | 공고 첨부파일(공고문·규격서·제안요청서 등)의 파일명·URL 조회 |
-| `download_attachments` | 첨부 파일을 디스크에 저장하고 HWPX·구형 HWP 본문 텍스트 추출 (파일 저장) |
+| `download_attachments` | 첨부 파일을 디스크에 저장하고 HWPX·구형 HWP·구형 DOC·ZIP(내부 재귀) 본문 텍스트 추출 (파일 저장) |
 
 ### `search_bid_notices`
 
@@ -569,12 +569,12 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 
 ### `download_attachments`
 
-첨부 파일을 디스크에 저장하고 HWPX·구형 HWP 본문 텍스트를 추출해 반환한다. `get_bid_attachments`가 URL만 돌려주는 데 반해, 이 도구는 실제 파일 저장과 내용 읽기가 필요할 때 쓴다. 제안요청서·과업지시서 내용을 요약·질의응답할 때 유용하다.
+첨부 파일을 디스크에 저장하고 HWPX·구형 HWP·구형 DOC 본문 텍스트를 추출해 반환한다(이들을 담은 ZIP은 내부 파일을 재귀 추출). `get_bid_attachments`가 URL만 돌려주는 데 반해, 이 도구는 실제 파일 저장과 내용 읽기가 필요할 때 쓴다. 제안요청서·과업지시서 내용을 요약·질의응답할 때 유용하다.
 
 > [!IMPORTANT]
 > 이 도구는 읽기 전용이 아니다(`readOnlyHint: false`). 첨부를 `<저장 디렉터리>/<공고번호>/` 아래에 저장한다. 저장 위치는 `DATA_GO_KR_DOWNLOAD_DIR`(미설정 시 `~/Downloads`)로 정한다. 이미 저장된 파일은 재다운로드 없이 재사용하며, 갱신은 감지하지 않는다(최신본이 필요하면 공고 폴더를 지우고 다시 호출).
 
-HWPX와 구형 HWP만 텍스트를 추출하고, 그 외 포맷은 파일만 저장한다(원본 바이트는 응답에 담지 않는다).
+HWPX·구형 HWP·구형 DOC와 이들을 담은 ZIP만 텍스트를 추출하고, 그 외 포맷은 파일만 저장한다(원본 바이트는 응답에 담지 않는다). ZIP은 하나의 첨부로 두되 내부 지원 파일(hwpx·hwp·doc)을 파일명 헤더(`=== 파일명 ===`)와 함께 본문으로 합쳐 준다(중첩 ZIP은 재귀하지 않는다).
 
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
@@ -583,7 +583,7 @@ HWPX와 구형 HWP만 텍스트를 추출하고, 그 외 포맷은 파일만 저
 | `offset` | `number` | `fileIndex` 지정 시 그 첨부 텍스트의 시작 문자 오프셋(기본 0) |
 | `maxChars` | `number` | `fileIndex` 지정 시 반환 문자 상한(기본 50000). 미지정 프리뷰는 첨부당 3000자 |
 
-반환: `{ bidNtceNo, anySucceeded, resolveErrors?, files, truncatedFileList? }`. `files`는 첨부별 `DownloadedFile`(다운로드·추출 실패를 파일별로 표면화). 저장 성공 파일은 `savedPath`·`byteSize`·`format`(`hwpx`/`hwp`/`other`)·`extractStatus`(`full`/`preview`/`unsupported`/`error`)·`text`·`textLength`·`truncated`를 담는다. `truncated: true`는 다음 페이지가 남았다는 신호다(`offset`을 올려 이어 읽는다).
+반환: `{ bidNtceNo, anySucceeded, resolveErrors?, files, truncatedFileList? }`. `files`는 첨부별 `DownloadedFile`(다운로드·추출 실패를 파일별로 표면화). 저장 성공 파일은 `savedPath`·`byteSize`·`format`(`hwpx`/`hwp`/`doc`/`zip`/`other`)·`extractStatus`(`full`/`preview`/`unsupported`/`error`)·`text`·`textLength`·`truncated`를 담는다. `truncated: true`는 다음 페이지가 남았다는 신호다(`offset`을 올려 이어 읽는다).
 
 ## 응답 필드
 

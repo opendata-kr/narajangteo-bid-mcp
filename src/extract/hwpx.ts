@@ -44,18 +44,8 @@ function decodeEntities(s: string): string {
     .replace(/&amp;/g, "&");
 }
 
-export async function extractHwpx(filePath: string): Promise<HwpxExtractResult> {
-  let buf: Buffer;
-  try {
-    buf = await readFile(filePath);
-  } catch (err) {
-    return {
-      status: "error",
-      text: "",
-      error: `HWPX 파일을 읽지 못했습니다: ${errMessage(err)}`,
-    };
-  }
-
+// 버퍼 코어(동기). zip 내부 첨부처럼 디스크 경로가 없는 입력도 추출할 수 있게 분리했다.
+export function extractHwpxFromBuffer(buf: Buffer): HwpxExtractResult {
   let entries: Record<string, Uint8Array>;
   try {
     // Contents/section*.xml만 압축 해제한다. HWPX는 BinData에 원본 이미지(수백 MB급)를
@@ -110,4 +100,18 @@ export async function extractHwpx(filePath: string): Promise<HwpxExtractResult> 
   }
 
   return { status: "full", text };
+}
+
+export async function extractHwpx(filePath: string): Promise<HwpxExtractResult> {
+  let buf: Buffer;
+  try {
+    buf = await readFile(filePath);
+  } catch (err) {
+    return {
+      status: "error",
+      text: "",
+      error: `HWPX 파일을 읽지 못했습니다: ${errMessage(err)}`,
+    };
+  }
+  return extractHwpxFromBuffer(buf);
 }

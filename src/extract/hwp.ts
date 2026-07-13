@@ -109,18 +109,8 @@ function extractBody(cfb: CFB.CFB$Container, compressed: boolean): string {
   return text;
 }
 
-export async function extractHwp(filePath: string): Promise<HwpExtractResult> {
-  let buf: Buffer;
-  try {
-    buf = await readFile(filePath);
-  } catch (err) {
-    return {
-      status: "error",
-      text: "",
-      error: `HWP 파일을 읽지 못했습니다: ${errMessage(err)}`,
-    };
-  }
-
+// 버퍼 코어(동기). zip 내부 첨부처럼 디스크 경로가 없는 입력도 추출할 수 있게 분리했다.
+export function extractHwpFromBuffer(buf: Buffer): HwpExtractResult {
   let cfb: CFB.CFB$Container;
   try {
     cfb = CFB.read(buf, { type: "buffer" });
@@ -152,4 +142,18 @@ export async function extractHwp(filePath: string): Promise<HwpExtractResult> {
     text: "",
     error: "HWP 본문과 미리보기(PrvText)에서 모두 텍스트를 추출하지 못했습니다.",
   };
+}
+
+export async function extractHwp(filePath: string): Promise<HwpExtractResult> {
+  let buf: Buffer;
+  try {
+    buf = await readFile(filePath);
+  } catch (err) {
+    return {
+      status: "error",
+      text: "",
+      error: `HWP 파일을 읽지 못했습니다: ${errMessage(err)}`,
+    };
+  }
+  return extractHwpFromBuffer(buf);
 }

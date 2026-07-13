@@ -38,7 +38,7 @@ export type DownloadAttachmentsArgs = z.infer<
 >;
 
 export const downloadAttachmentsDescription =
-  "입찰공고 첨부(공고문·규격서·제안요청서·과업지시서 등)를 디스크에 내려받고 본문 텍스트를 추출해 반환한다. 첨부의 다운로드 URL만 필요하면 get_bid_attachments를 쓰고, 실제 파일 저장과 내용 읽기가 필요할 때 이 도구를 쓴다. 저장 위치는 DATA_GO_KR_DOWNLOAD_DIR(미설정 시 ~/Downloads) 아래 공고번호 폴더다. fileIndex 미지정 시 각 첨부 앞부분 미리보기를, 지정 시 그 첨부 전문을 offset·maxChars로 페이지네이션해 준다. HWPX·구형 HWP만 텍스트를 추출하고 그 외 포맷은 파일만 저장한다(원본 바이트는 응답에 담지 않는다).";
+  "입찰공고 첨부(공고문·규격서·제안요청서·과업지시서 등)를 디스크에 내려받고 본문 텍스트를 추출해 반환한다. 첨부의 다운로드 URL만 필요하면 get_bid_attachments를 쓰고, 실제 파일 저장과 내용 읽기가 필요할 때 이 도구를 쓴다. 저장 위치는 DATA_GO_KR_DOWNLOAD_DIR(미설정 시 ~/Downloads) 아래 공고번호 폴더다. fileIndex 미지정 시 각 첨부 앞부분 미리보기를, 지정 시 그 첨부 전문을 offset·maxChars로 페이지네이션해 준다. HWPX·구형 HWP·구형 DOC와 이들을 담은 ZIP만 텍스트를 추출한다(ZIP은 내부 지원 파일을 파일명 헤더와 함께 합쳐 준다). 그 외 포맷은 파일만 저장한다(원본 바이트는 응답에 담지 않는다).";
 
 const MAX_ATTACHMENTS = 20;
 const PREVIEW_CHARS = 3000;
@@ -52,7 +52,7 @@ type Downloaded =
       downloadStatus: "ok";
       savedPath: string;
       byteSize: number;
-      format: "hwpx" | "hwp" | "other";
+      format: "hwpx" | "hwp" | "doc" | "zip" | "other";
       extractStatus: "full" | "preview" | "unsupported" | "error";
       fullText: string;
       extractError?: string;
