@@ -1,5 +1,4 @@
-import { mkdir, open, unlink } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { mkdir, open, unlink, rename } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -84,63 +83,52 @@ export interface DownloadOptions {
   fetch?: typeof fetch;
   maxBytes?: number;
   timeoutMs?: number;
-  index?: number;
-  // 한 호출 안에서 이미 쓴 파일명 집합. 주입하면 디스크가 아니라 이 집합으로만 동명을
-  // 판정한다(호출 간에는 같은 첨부가 같은 경로로 덮어써져 사본이 누적되지 않는다).
-  reserved?: Set<string>;
 }
 
-export interface DownloadResult {
-  savedPath: string;
-  byteSize: number;
-}
-
-// 동명이면 확장자 앞에 ` (n)`을 붙여 충돌을 피한다: `제안요청서 (1).hwpx`.
-// reserved(호출 스코프 집합)를 주면 그 집합으로만 판정하고 선택한 이름을 등록한다. 없으면
-// 디스크 존재(existsSync)로 판정한다. reserved 방식은 재호출 시 같은 경로를 재사용해(open "w"가
-// 덮어씀) 사본이 누적되지 않게 한다.
-function uniqueSavedPath(
+// 저장할 파일명을 결정하는 순수 함수(디스크·네트워크 접근 없음). 경로순회 방어(sanitize +
+// saveDir 하위 재확인) 후, reserved(이 호출에서 이미 계획한 이름 집합)로 동명을 판정해
+// ` (n)` 서픽스를 붙이고 확정명을 등록한다. 순수·순서 결정적이라 같은 index는 재호출에도 같은
+// 경로를 낳는다(재사용 스킵의 근거). 디스크 존재로 유일화하지 않는다.
+export function planSavedPath(
   saveDir: string,
-  name: string,
-  reserved?: Set<string>,
+  fileNm: string,
+  index: number,
+  reserved: Set<string>,
 ): string {
+  const fallbackName = `attachment-${index}`;
+  let name = sanitizeSegment(fileNm, fallbackName);
+  // 정규화 후에도 saveDir 하위를 벗어나면 대체명으로 강등한다.
+  if (!isInside(path.resolve(saveDir), path.resolve(saveDir, name))) {
+    name = sanitizeSegment(fallbackName, fallbackName);
+  }
   const ext = path.extname(name);
   const stem = name.slice(0, name.length - ext.length);
-  const taken = (candidate: string): boolean =>
-    reserved ? reserved.has(candidate) : existsSync(path.join(saveDir, candidate));
   let candidate = name;
   let n = 1;
-  while (taken(candidate)) {
+  while (reserved.has(candidate)) {
     candidate = `${stem} (${n})${ext}`;
     n += 1;
   }
-  reserved?.add(candidate);
+  reserved.add(candidate);
   return path.join(saveDir, candidate);
 }
 
-// URL을 GET으로 받아 saveDir 안에 저장한다. serviceKey 없는 순수 요청이다.
-// 방어 3종: (1) 파일명 sanitizeSegment + saveDir 하위 재확인, (2) 타임아웃 AbortController,
-// (3) 크기 상한 이중 가드(content-length 선거부 + 스트리밍 누적 초과 시 중단). 실패하면
-// 부분 파일을 지우고 한국어 회복 지시 메시지로 throw한다.
-export async function downloadToFile(
+// URL을 GET으로 받아 정확히 savedPath에 저장한다(이름 계산은 planSavedPath 소관). serviceKey
+// 없는 순수 요청이다. 방어: (1) 타임아웃 AbortController, (2) 크기 상한 이중 가드(content-length
+// 선거부 + 스트리밍 누적 초과 시 중단). 원자적 저장: `savedPath + ".part"`에 받아 성공 시에만
+// rename한다. 모든 실패 경로에서 임시 파일을 지우고 한국어 회복 지시로 throw한다(savedPath 존재
+// = 완전한 다운로드 불변식, 재사용 스킵이 이에 의존).
+export async function downloadToPath(
   url: string,
-  fileNm: string,
-  saveDir: string,
+  savedPath: string,
   opts: DownloadOptions = {},
-): Promise<DownloadResult> {
+): Promise<{ byteSize: number }> {
   const doFetch = opts.fetch ?? globalThis.fetch;
   const maxBytes = opts.maxBytes ?? envNumber("DATA_GO_KR_DOWNLOAD_MAX_BYTES") ?? DEFAULT_MAX_BYTES;
   const timeoutMs =
     opts.timeoutMs ?? envNumber("DATA_GO_KR_DOWNLOAD_TIMEOUT_MS") ?? DEFAULT_TIMEOUT_MS;
 
-  const fallbackName = `attachment-${opts.index ?? 0}`;
-  let safeName = sanitizeSegment(fileNm, fallbackName);
-  const resolvedDir = path.resolve(saveDir);
-  // 정규화 후에도 saveDir 하위를 벗어나면 대체명으로 강등한다.
-  if (!isInside(resolvedDir, path.resolve(saveDir, safeName))) {
-    safeName = sanitizeSegment(fallbackName, fallbackName);
-  }
-  const savedPath = uniqueSavedPath(saveDir, safeName, opts.reserved);
+  const partPath = savedPath + ".part";
 
   const controller = new AbortController();
   let timedOut = false;
@@ -188,14 +176,13 @@ export async function downloadToFile(
 
     let fh: Awaited<ReturnType<typeof open>>;
     try {
-      fh = await open(savedPath, "w");
+      fh = await open(partPath, "w");
     } catch (err) {
       throw new Error(
         `파일을 저장할 위치를 열지 못했습니다(${errMessage(err)}). 저장 경로의 권한과 디스크 여유 공간을 확인하세요: ${savedPath}`,
       );
     }
     let received = 0;
-    let failed = false;
     try {
       const reader = res.body.getReader();
       for (;;) {
@@ -217,18 +204,18 @@ export async function downloadToFile(
           );
         }
       }
+      // 완전 수신 후에만 원자적으로 최종 경로에 놓는다.
+      await fh.close();
+      await rename(partPath, savedPath);
     } catch (err) {
-      failed = true;
       await fh.close().catch(() => {});
-      await unlink(savedPath).catch(() => {});
+      await unlink(partPath).catch(() => {});
       // 스트리밍 도중 타임아웃 abort는 reader가 원본 AbortError를 던지므로 한국어로 변환한다.
       if (timedOut) throw timeoutError();
       throw err instanceof Error ? err : new Error(errMessage(err));
-    } finally {
-      if (!failed) await fh.close();
     }
 
-    return { savedPath, byteSize: received };
+    return { byteSize: received };
   } finally {
     clearTimeout(timer);
   }

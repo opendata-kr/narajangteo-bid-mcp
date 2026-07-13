@@ -282,22 +282,55 @@ describe("runDownloadAttachments", () => {
     expect(out.truncatedFileList).toBe(true);
   });
 
-  it("같은 공고를 반복 호출해도 사본이 누적되지 않고 같은 경로로 덮어쓴다", async () => {
+  it("재호출·페이지네이션은 이미 저장된 파일을 재사용하고 fetch하지 않는다", async () => {
     const client = makeClient({
       eorder: [eorderItem("제안요청서.hwpx", "https://f/rep")],
       rfp: [],
     });
-    const fetchFn = makeFetch({ "https://f/rep": makeHwpx("반복본문") });
+    const urls: string[] = [];
+    const countingFetch = (async (input: unknown) => {
+      urls.push(String(input));
+      return new Response(makeHwpx("반복본문"));
+    }) as unknown as typeof fetch;
 
-    const first = await runDownloadAttachments(client, { bidNtceNo: "REPEAT1" }, { fetch: fetchFn });
-    const second = await runDownloadAttachments(client, { bidNtceNo: "REPEAT1" }, { fetch: fetchFn });
+    const first = await runDownloadAttachments(client, { bidNtceNo: "REUSE1" }, { fetch: countingFetch });
+    const second = await runDownloadAttachments(
+      client,
+      { bidNtceNo: "REUSE1", fileIndex: 0, offset: 0, maxChars: 100 },
+      { fetch: countingFetch },
+    );
     const f0 = first.files[0]!;
     const s0 = second.files[0]!;
     if (f0.downloadStatus !== "ok" || s0.downloadStatus !== "ok") throw new Error("ok 아님");
-    // 두 호출의 savedPath가 동일(재호출이 ` (1)` 사본을 만들지 않음).
+    // 첫 호출만 fetch, 둘째(페이지네이션)는 디스크 재사용으로 fetch 없음.
+    expect(urls).toEqual(["https://f/rep"]);
     expect(s0.savedPath).toBe(f0.savedPath);
-    // 공고 폴더에 첨부 1개만 존재.
-    const bidDir = path.join(tmpBase, "REPEAT1");
-    expect(readdirSync(bidDir)).toEqual(["제안요청서.hwpx"]);
+    // 공고 폴더에 첨부 1개만(누적·` (1)` 사본 없음).
+    expect(readdirSync(path.join(tmpBase, "REUSE1"))).toEqual(["제안요청서.hwpx"]);
+  });
+
+  it("fileIndex 모드는 대상 첨부 하나만 다운로드한다(나머지 fetch 안 함)", async () => {
+    const client = makeClient({
+      eorder: [
+        eorderItem("첫번째.hwpx", "https://f/t0"),
+        eorderItem("둘째.hwpx", "https://f/t1"),
+        eorderItem("셋째.hwpx", "https://f/t2"),
+      ],
+      rfp: [],
+    });
+    const urls: string[] = [];
+    const countingFetch = (async (input: unknown) => {
+      urls.push(String(input));
+      return new Response(makeHwpx("본문"));
+    }) as unknown as typeof fetch;
+
+    const out = await runDownloadAttachments(
+      client,
+      { bidNtceNo: "TARGET1", fileIndex: 1 },
+      { fetch: countingFetch },
+    );
+    // 대상(index 1)만 fetch, index 0·2는 다운로드 안 함.
+    expect(urls).toEqual(["https://f/t1"]);
+    expect(out.files).toHaveLength(1);
   });
 });

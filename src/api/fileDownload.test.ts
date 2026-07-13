@@ -3,7 +3,7 @@ import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { sanitizeSegment, resolveSaveDir, downloadToFile } from "./fileDownload.js";
+import { sanitizeSegment, resolveSaveDir, planSavedPath, downloadToPath } from "./fileDownload.js";
 
 // 웹 표준 Response를 감싼 fake fetch. 스트림 본문을 매 호출 새로 만들어(스트림은 1회 소비)
 // 실 네트워크 없이 주입한다. 캐스트는 이 주입 지점에만 둔다.
@@ -87,8 +87,44 @@ describe("resolveSaveDir", () => {
   });
 });
 
-describe("downloadToFile", () => {
+describe("planSavedPath", () => {
+  // 순수 함수라 디스크 접근이 없다. saveDir은 임의 문자열이면 된다.
+  const dir = path.join(tmpdir(), "plan-base");
+
+  it("정상 파일명은 saveDir/파일명을 결정한다", () => {
+    expect(planSavedPath(dir, "제안요청서.hwpx", 0, new Set())).toBe(
+      path.join(dir, "제안요청서.hwpx"),
+    );
+  });
+
+  it("한 호출 안 서로 다른 동명은 reserved 기준 ` (1)` 서픽스", () => {
+    const reserved = new Set<string>();
+    const a = planSavedPath(dir, "문서.hwp", 0, reserved);
+    const b = planSavedPath(dir, "문서.hwp", 1, reserved);
+    expect(path.basename(a)).toBe("문서.hwp");
+    expect(path.basename(b)).toBe("문서 (1).hwp");
+  });
+
+  it("순수·순서 결정적이라 새 reserved면 같은 index는 같은 경로(재사용 근거)", () => {
+    expect(planSavedPath(dir, "문서.hwp", 0, new Set())).toBe(
+      planSavedPath(dir, "문서.hwp", 0, new Set()),
+    );
+  });
+
+  it("악성 fileNm은 saveDir 하위로 강등한다", () => {
+    const p = planSavedPath(dir, "../../etc/passwd", 0, new Set());
+    expect(p).toBe(path.join(dir, "passwd"));
+    expect(path.dirname(p)).toBe(dir);
+  });
+
+  it("빈 결과는 attachment-<index> 대체명", () => {
+    expect(path.basename(planSavedPath(dir, "..", 3, new Set()))).toBe("attachment-3");
+  });
+});
+
+describe("downloadToPath", () => {
   let dir: string;
+  const target = (name: string): string => path.join(dir, name);
 
   beforeAll(async () => {
     dir = await mkdtemp(path.join(tmpdir(), "bid-file-"));
@@ -97,33 +133,23 @@ describe("downloadToFile", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it("정상 응답을 파일로 저장하고 byteSize를 반환한다", async () => {
+  it("정상 응답을 정확 경로에 저장하고 byteSize를 반환한다(임시파일 정리)", async () => {
     const bytes = new TextEncoder().encode("hello");
     const fetch = makeFetch(() => streamResponse(bytes, bytes.byteLength));
-    const { savedPath, byteSize } = await downloadToFile("http://x/f", "제안요청서.hwpx", dir, {
-      fetch,
-    });
+    const sp = target("제안요청서.hwpx");
+    const { byteSize } = await downloadToPath("http://x/f", sp, { fetch });
     expect(byteSize).toBe(5);
-    expect(savedPath).toBe(path.join(dir, "제안요청서.hwpx"));
-    expect(await readFile(savedPath, "utf8")).toBe("hello");
-  });
-
-  it("동명 파일 충돌 시 두 번째는 ` (1)` 서픽스를 붙인다", async () => {
-    const bytes = new TextEncoder().encode("data");
-    const fetch = makeFetch(() => streamResponse(bytes));
-    const first = await downloadToFile("http://x/f", "문서.hwp", dir, { fetch });
-    const second = await downloadToFile("http://x/f", "문서.hwp", dir, { fetch });
-    expect(path.basename(first.savedPath)).toBe("문서.hwp");
-    expect(path.basename(second.savedPath)).toBe("문서 (1).hwp");
+    expect(await readFile(sp, "utf8")).toBe("hello");
+    expect(existsSync(sp + ".part")).toBe(false);
   });
 
   it("content-length가 상한을 초과하면 즉시 거부하고 파일을 만들지 않는다", async () => {
     const bytes = new TextEncoder().encode("way too big");
     const fetch = makeFetch(() => streamResponse(bytes, bytes.byteLength));
-    await expect(
-      downloadToFile("http://x/f", "big.bin", dir, { fetch, maxBytes: 3 }),
-    ).rejects.toThrow();
-    expect(existsSync(path.join(dir, "big.bin"))).toBe(false);
+    const sp = target("big.bin");
+    await expect(downloadToPath("http://x/f", sp, { fetch, maxBytes: 3 })).rejects.toThrow();
+    expect(existsSync(sp)).toBe(false);
+    expect(existsSync(sp + ".part")).toBe(false);
   });
 
   it("content-length 없는 청크드 응답이 누적 상한을 넘으면 중단하고 부분 파일을 남기지 않는다", async () => {
@@ -138,36 +164,18 @@ describe("downloadToFile", () => {
       });
       return new Response(stream, { status: 200 });
     });
-    await expect(
-      downloadToFile("http://x/f", "chunked.bin", dir, { fetch, maxBytes: 3 }),
-    ).rejects.toThrow();
-    expect(existsSync(path.join(dir, "chunked.bin"))).toBe(false);
-  });
-
-  it("reserved 집합을 주면 디스크가 아닌 집합으로 동명을 판정한다(재호출 덮어쓰기)", async () => {
-    const bytes = new TextEncoder().encode("v2");
-    const fetch = makeFetch(() => streamResponse(bytes));
-    // 같은 reserved 안에서 두 번째 동명은 서픽스.
-    const reserved = new Set<string>();
-    const a = await downloadToFile("http://x/f", "리포트.hwp", dir, { fetch, reserved });
-    const b = await downloadToFile("http://x/f", "리포트.hwp", dir, { fetch, reserved });
-    expect(path.basename(a.savedPath)).toBe("리포트.hwp");
-    expect(path.basename(b.savedPath)).toBe("리포트 (1).hwp");
-    // 새 reserved(다음 호출)면 디스크에 파일이 있어도 같은 경로를 재사용해 덮어쓴다.
-    const c = await downloadToFile("http://x/f", "리포트.hwp", dir, {
-      fetch,
-      reserved: new Set<string>(),
-    });
-    expect(path.basename(c.savedPath)).toBe("리포트.hwp");
+    const sp = target("chunked.bin");
+    await expect(downloadToPath("http://x/f", sp, { fetch, maxBytes: 3 })).rejects.toThrow();
+    expect(existsSync(sp)).toBe(false);
+    expect(existsSync(sp + ".part")).toBe(false);
   });
 
   it("위조된 content-length(작은 값+큰 본문)도 스트리밍 누적으로 잡아 거부한다", async () => {
     const big = new Uint8Array(10);
     const fetch = makeFetch(() => streamResponse(big, 2)); // 선언 2, 실제 10
-    await expect(
-      downloadToFile("http://x/f", "forged.bin", dir, { fetch, maxBytes: 3 }),
-    ).rejects.toThrow(/상한/);
-    expect(existsSync(path.join(dir, "forged.bin"))).toBe(false);
+    const sp = target("forged.bin");
+    await expect(downloadToPath("http://x/f", sp, { fetch, maxBytes: 3 })).rejects.toThrow(/상한/);
+    expect(existsSync(sp)).toBe(false);
   });
 
   it("스트리밍 도중 타임아웃은 한국어 회복 지시로 변환한다", async () => {
@@ -184,32 +192,25 @@ describe("downloadToFile", () => {
       });
       return new Response(stream, { status: 200 });
     }) as unknown as typeof fetch;
+    const sp = target("slow.bin");
     await expect(
-      downloadToFile("http://x/f", "slow.bin", dir, { fetch: hangingFetch, timeoutMs: 20 }),
+      downloadToPath("http://x/f", sp, { fetch: hangingFetch, timeoutMs: 20 }),
     ).rejects.toThrow(/DATA_GO_KR_DOWNLOAD_TIMEOUT_MS/);
-    expect(existsSync(path.join(dir, "slow.bin"))).toBe(false);
+    expect(existsSync(sp)).toBe(false);
+    expect(existsSync(sp + ".part")).toBe(false);
   });
 
   it("저장 위치를 열 수 없으면(없는 디렉터리) 한국어 회복 지시로 throw한다", async () => {
     const bytes = new TextEncoder().encode("x");
     const fetch = makeFetch(() => streamResponse(bytes));
-    const missingDir = path.join(dir, "does-not-exist");
-    await expect(
-      downloadToFile("http://x/f", "a.bin", missingDir, { fetch }),
-    ).rejects.toThrow(/저장/);
-  });
-
-  it("악성 fileNm은 saveDir 하위에만 저장한다", async () => {
-    const bytes = new TextEncoder().encode("x");
-    const fetch = makeFetch(() => streamResponse(bytes));
-    const { savedPath } = await downloadToFile("http://x/f", "../../etc/passwd", dir, { fetch });
-    expect(savedPath).toBe(path.join(dir, "passwd"));
-    expect(path.dirname(savedPath)).toBe(dir);
+    const sp = path.join(dir, "does-not-exist", "a.bin");
+    await expect(downloadToPath("http://x/f", sp, { fetch })).rejects.toThrow(/저장/);
   });
 
   it("HTTP 오류 응답이면 파일을 남기지 않고 throw한다", async () => {
     const fetch = makeFetch(() => new Response("nope", { status: 404 }));
-    await expect(downloadToFile("http://x/f", "err.bin", dir, { fetch })).rejects.toThrow();
-    expect(existsSync(path.join(dir, "err.bin"))).toBe(false);
+    const sp = target("err.bin");
+    await expect(downloadToPath("http://x/f", sp, { fetch })).rejects.toThrow();
+    expect(existsSync(sp)).toBe(false);
   });
 });

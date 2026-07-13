@@ -1,12 +1,15 @@
+import { existsSync, statSync } from "node:fs";
 import { z } from "zod";
 import type { DataGoKrClient } from "@opendata-kr/core";
 import { ATTACH_OPS } from "../api/endpoints.js";
 import { formatAttachment } from "../format.js";
 import { runOps } from "../api/runOps.js";
 import { LABELS } from "./attachments.js";
-import { resolveSaveDir, downloadToFile } from "../api/fileDownload.js";
+import { resolveSaveDir, planSavedPath, downloadToPath } from "../api/fileDownload.js";
 import { extractText } from "../extract/index.js";
 import type { DownloadedFile, DownloadAttachmentsResult } from "../api/types.js";
+
+type DownloadOpts = { fetch?: typeof fetch; maxBytes?: number; timeoutMs?: number };
 
 export const downloadAttachmentsInputShape = {
   bidNtceNo: z
@@ -141,43 +144,33 @@ export async function runDownloadAttachments(
   // 6. 저장 디렉터리 1회 확보(throw 가능 → 핸들러 errorText가 잡음).
   const saveDir = await resolveSaveDir(args.bidNtceNo);
 
-  // 7. 순차 다운로드+추출. per-file try/catch로 한 파일 실패가 전체를 죽이지 않게 한다.
-  // reserved는 이 호출에서 쓴 파일명을 모아 서로 다른 동명 첨부만 서픽스한다. 재호출은 같은
-  // 경로로 덮어써 ~/Downloads/{공고}/에 사본이 누적되지 않는다.
+  // 7. 결정적 이름 계획(순수, 전 리스트 순서대로). fileIndex 대상만 받아도 index→savedPath가
+  // 프리뷰 모드와 같게 나오도록 전 리스트를 돈다. reserved는 한 호출 내 서로 다른 동명 첨부만
+  // 서픽스한다(재호출에도 같은 이름 → 재사용 스킵의 근거).
   const reserved = new Set<string>();
-  const downloaded: Downloaded[] = [];
-  for (let i = 0; i < list.length; i += 1) {
-    const att = list[i]!;
-    try {
-      const { savedPath, byteSize } = await downloadToFile(att.fileUrl, att.fileNm, saveDir, {
-        ...opts,
-        index: i,
-        reserved,
-      });
-      const ex = await extractText(savedPath, att.fileNm);
-      downloaded.push({
-        fileNm: att.fileNm,
-        downloadStatus: "ok",
-        savedPath,
-        byteSize,
-        format: ex.format,
-        extractStatus: ex.status,
-        fullText: ex.text,
-        ...(ex.error !== undefined ? { extractError: ex.error } : {}),
-      });
-    } catch (err) {
-      downloaded.push({
-        fileNm: att.fileNm,
-        downloadStatus: "error",
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
+  const planned = list.map((att, i) => ({
+    fileNm: att.fileNm,
+    fileUrl: att.fileUrl,
+    savedPath: planSavedPath(saveDir, att.fileNm, i, reserved),
+  }));
 
-  // 8. 슬라이스(모드 분기).
-  const files = args.fileIndex === undefined
-    ? slicePreview(downloaded)
-    : sliceOne(downloaded, args.fileIndex, args.offset, args.maxChars);
+  // 8. 다운로드 or 재사용 후 슬라이스. fileIndex 지정 시 대상 한 건만 받고(페이지네이션이 나머지
+  // 첨부를 재요청하지 않음), 미지정 시 전 파일 프리뷰.
+  let files: DownloadedFile[];
+  if (args.fileIndex !== undefined) {
+    const idx = args.fileIndex;
+    if (!Number.isInteger(idx) || idx < 0 || idx >= planned.length) {
+      throw new Error(
+        `fileIndex는 0..${planned.length - 1} 범위여야 합니다. files 배열 길이(${planned.length}) 안의 정수를 지정하세요.`,
+      );
+    }
+    const entry = await fetchOrReuse(planned[idx]!, opts);
+    files = sliceEntry(entry, args.offset, args.maxChars);
+  } else {
+    const downloaded: Downloaded[] = [];
+    for (const p of planned) downloaded.push(await fetchOrReuse(p, opts));
+    files = slicePreview(downloaded);
+  }
 
   // 9. undefined 필드는 생략.
   return {
@@ -199,19 +192,46 @@ function slicePreview(downloaded: Downloaded[]): DownloadedFile[] {
   });
 }
 
-// fileIndex 지정 모드: 그 단건만 offset·maxChars로 페이지네이션해 반환.
-function sliceOne(
-  downloaded: Downloaded[],
-  fileIndex: number,
+// 계획된 첨부 하나를 다운로드하거나(경로에 없을 때) 이미 있으면 디스크에서 재사용한다.
+// downloadToPath의 원자적 저장 불변식 덕에 존재하는 savedPath는 항상 완전한 파일이다.
+// 다운로드·추출 실패는 throw하지 않고 error 엔트리로 격리한다(per-file).
+async function fetchOrReuse(
+  p: { fileNm: string; fileUrl: string; savedPath: string },
+  opts?: DownloadOpts,
+): Promise<Downloaded> {
+  try {
+    let byteSize: number;
+    if (existsSync(p.savedPath)) {
+      byteSize = statSync(p.savedPath).size;
+    } else {
+      ({ byteSize } = await downloadToPath(p.fileUrl, p.savedPath, opts ?? {}));
+    }
+    const ex = await extractText(p.savedPath, p.fileNm);
+    return {
+      fileNm: p.fileNm,
+      downloadStatus: "ok",
+      savedPath: p.savedPath,
+      byteSize,
+      format: ex.format,
+      extractStatus: ex.status,
+      fullText: ex.text,
+      ...(ex.error !== undefined ? { extractError: ex.error } : {}),
+    };
+  } catch (err) {
+    return {
+      fileNm: p.fileNm,
+      downloadStatus: "error",
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+// fileIndex 지정 모드: 단건을 offset·maxChars로 페이지네이션해 반환(범위 검사는 호출자가 함).
+function sliceEntry(
+  target: Downloaded,
   offsetArg: number | undefined,
   maxCharsArg: number | undefined,
 ): DownloadedFile[] {
-  if (!Number.isInteger(fileIndex) || fileIndex < 0 || fileIndex >= downloaded.length) {
-    throw new Error(
-      `fileIndex는 0..${downloaded.length - 1} 범위여야 합니다. files 배열 길이(${downloaded.length}) 안의 정수를 지정하세요.`,
-    );
-  }
-  const target = downloaded[fileIndex]!;
   // 다운로드 실패·텍스트 없는 엔트리는 슬라이스 없이 원형 단건 반환.
   if (target.downloadStatus === "error") return [target];
   if (!hasText(target)) return [emptyTextFile(target)];

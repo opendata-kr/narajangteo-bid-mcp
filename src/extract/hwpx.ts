@@ -58,7 +58,11 @@ export async function extractHwpx(filePath: string): Promise<HwpxExtractResult> 
 
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(new Uint8Array(buf));
+    // Contents/section*.xml만 압축 해제한다. HWPX는 BinData에 원본 이미지(수백 MB급)를
+    // 담을 수 있어 전체 해제는 본문 텍스트에 불필요한 비용이다(페이지네이션 재추출 비용).
+    entries = unzipSync(new Uint8Array(buf), {
+      filter: (file) => SECTION_RE.test(file.name),
+    });
   } catch (err) {
     return {
       status: "error",
