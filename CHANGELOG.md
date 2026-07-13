@@ -2,6 +2,18 @@
 
 이 프로젝트의 주요 변경 사항을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르고, 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [0.3.1](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.3.0...v0.3.1) (2026-07-13)
+
+
+### Bug Fixes
+
+* **attachments:** 공고 규격첨부(ntceSpec)를 첨부 주 소스로 편입 ([90ac1d8](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/90ac1d8651cb46574dbf2588442408f7f6f4c420))
+
+
+### Documentation
+
+* **readme:** download_attachments 도구·다운로드 env 3종 반영 ([69d6303](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/69d630380620f7be89d30e7bbd388fb1b26be9c7))
+
 ## [0.3.0](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.2.1...v0.3.0) (2026-07-13)
 
 
