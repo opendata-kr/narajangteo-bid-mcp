@@ -39,8 +39,12 @@ describe("sanitizeSegment", () => {
     expect(sanitizeSegment("제안요청서.hwpx", "fb")).toBe("제안요청서.hwpx");
   });
 
-  it("경로 구분자를 제거한다", () => {
-    expect(sanitizeSegment("foo\\bar.hwp", "fb")).toBe("foobar.hwp");
+  it("경로 구분자(백슬래시)를 제거한다", () => {
+    // 결과 문자열은 플랫폼마다 다르다(Windows basename은 `\`를 구분자로 봐 앞부분을 떼고,
+    // POSIX는 리터럴로 봐 코드가 제거). 어느 쪽이든 구분자 없는 안전한 단일 세그먼트여야 한다.
+    const out = sanitizeSegment("foo\\bar.hwp", "fb");
+    expect(out).not.toMatch(/[/\\]/);
+    expect(out.endsWith("bar.hwp")).toBe(true);
   });
 
   it("200자를 초과하면 확장자를 보존하며 절단한다", () => {
