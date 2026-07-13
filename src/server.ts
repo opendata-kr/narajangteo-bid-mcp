@@ -46,6 +46,12 @@ import {
   runDownloadAttachments,
   type DownloadAttachmentsArgs,
 } from "./tools/downloadAttachments.js";
+import {
+  readAttachmentInputShape,
+  readAttachmentDescription,
+  runReadAttachment,
+  type ReadAttachmentArgs,
+} from "./tools/readAttachment.js";
 import { withKeyHint, errMessage } from "@opendata-kr/core";
 
 function textResult(payload: unknown, isError = false) {
@@ -218,7 +224,7 @@ export function createServer(client: DataGoKrClient): McpServer {
   server.registerTool(
     "download_attachments",
     {
-      title: "입찰공고 첨부 다운로드·본문 추출",
+      title: "입찰공고 첨부 다운로드·파일 목록",
       description: downloadAttachmentsDescription,
       inputSchema: downloadAttachmentsInputShape,
       annotations: { readOnlyHint: false, openWorldHint: true },
@@ -226,6 +232,24 @@ export function createServer(client: DataGoKrClient): McpServer {
     async (args) => {
       try {
         return textResult(await runDownloadAttachments(client, args as DownloadAttachmentsArgs));
+      } catch (err) {
+        return errorText(err, client);
+      }
+    },
+  );
+
+  // read_attachment도 없는 파일은 그 파일만 내려받으므로 디스크를 바꿀 수 있다(readOnlyHint:false).
+  server.registerTool(
+    "read_attachment",
+    {
+      title: "첨부 본문 읽기",
+      description: readAttachmentDescription,
+      inputSchema: readAttachmentInputShape,
+      annotations: { readOnlyHint: false, openWorldHint: true },
+    },
+    async (args) => {
+      try {
+        return textResult(await runReadAttachment(client, args as ReadAttachmentArgs));
       } catch (err) {
         return errorText(err, client);
       }

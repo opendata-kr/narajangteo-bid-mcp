@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 import { extractHwpxFromBuffer } from "./hwpx.js";
 import { extractHwpFromBuffer } from "./hwp.js";
 import { extractDocFromBuffer } from "./doc.js";
-import { extractZipFromBuffer } from "./zip.js";
 
 // 첨부 파일명 확장자로 추출기를 고르고, 하위 추출기 예외를 status="error"로
-// 격리해 도구 전체가 throw로 죽지 않게 한다.
+// 격리해 도구 전체가 throw로 죽지 않게 한다. zip은 텍스트 추출 대상이 아니라
+// 도구 계층이 내부 파일로 펼쳐 처리한다(여기선 unsupported).
 
 export type ExtractFormat = "hwpx" | "hwp" | "doc" | "zip" | "other";
 
@@ -16,7 +16,7 @@ export interface ExtractResult {
   error?: string;
 }
 
-function formatFor(fileNm: string): ExtractFormat {
+export function formatFor(fileNm: string): ExtractFormat {
   const lower = fileNm.toLowerCase();
   if (lower.endsWith(".hwpx")) return "hwpx";
   if (lower.endsWith(".hwp")) return "hwp";
@@ -25,30 +25,26 @@ function formatFor(fileNm: string): ExtractFormat {
   return "other";
 }
 
-// 버퍼 코어 디스패치. allowZip=false면 zip을 재귀하지 않는다(zip 내부의 중첩 zip 차단).
-function extractFromBuffer(fileNm: string, buf: Buffer, allowZip: boolean): ExtractResult {
+// 버퍼 코어 디스패치. zip 내부 파일 버퍼도 이 함수로 추출한다(zip 자신은 unsupported).
+export function extractBuffer(fileNm: string, buf: Buffer): ExtractResult {
   const format = formatFor(fileNm);
-  if (format === "hwpx") {
-    const r = extractHwpxFromBuffer(buf);
-    return { format, status: r.status, text: r.text, error: r.error };
+  try {
+    if (format === "hwpx") {
+      const r = extractHwpxFromBuffer(buf);
+      return { format, status: r.status, text: r.text, error: r.error };
+    }
+    if (format === "hwp") {
+      const r = extractHwpFromBuffer(buf);
+      return { format, status: r.status, text: r.text, error: r.error };
+    }
+    if (format === "doc") {
+      const r = extractDocFromBuffer(buf);
+      return { format, status: r.status, text: r.text, error: r.error };
+    }
+    return { format, status: "unsupported", text: "" };
+  } catch (err) {
+    return { format, status: "error", text: "", error: err instanceof Error ? err.message : String(err) };
   }
-  if (format === "hwp") {
-    const r = extractHwpFromBuffer(buf);
-    return { format, status: r.status, text: r.text, error: r.error };
-  }
-  if (format === "doc") {
-    const r = extractDocFromBuffer(buf);
-    return { format, status: r.status, text: r.text, error: r.error };
-  }
-  if (format === "zip") {
-    if (!allowZip) return { format, status: "unsupported", text: "" }; // 중첩 zip 미재귀
-    const r = extractZipFromBuffer(buf, (innerNm, innerBuf) => {
-      const ir = extractFromBuffer(innerNm, innerBuf, false);
-      return { extracted: ir.status === "full" || ir.status === "preview", text: ir.text };
-    });
-    return { format, status: r.status, text: r.text, error: r.error };
-  }
-  return { format, status: "unsupported", text: "" };
 }
 
 export async function extractText(
@@ -66,14 +62,5 @@ export async function extractText(
       error: `첨부 파일을 읽지 못했습니다: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
-  try {
-    return extractFromBuffer(fileNm, buf, true);
-  } catch (err) {
-    return {
-      format: formatFor(fileNm),
-      status: "error",
-      text: "",
-      error: err instanceof Error ? err.message : String(err),
-    };
-  }
+  return extractBuffer(fileNm, buf);
 }

@@ -454,7 +454,7 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 
 ## 도구
 
-9개 도구 중 8개는 읽기 전용 조회(`readOnlyHint: true`)다. `download_attachments`만 첨부 파일을 디스크에 저장하므로 읽기 전용이 아니다(`readOnlyHint: false`). 업무구분·항목별 병렬 조회 도구는 `results`에 조회 단위(업무구분 또는 항목 라벨)마다 성공 시 `{ status: "ok", totalCount, items }`, 실패 시 `{ status: "error", error }`를 담는다. 일부가 실패해도 나머지 결과는 반환하며(부분 실패 표면화), `anySucceeded`는 하나라도 성공했는지를 나타낸다.
+10개 도구 중 8개는 읽기 전용 조회(`readOnlyHint: true`)다. `download_attachments`·`read_attachment`는 첨부 파일을 디스크에 저장할 수 있어 읽기 전용이 아니다(`readOnlyHint: false`). 업무구분·항목별 병렬 조회 도구는 `results`에 조회 단위(업무구분 또는 항목 라벨)마다 성공 시 `{ status: "ok", totalCount, items }`, 실패 시 `{ status: "error", error }`를 담는다. 일부가 실패해도 나머지 결과는 반환하며(부분 실패 표면화), `anySucceeded`는 하나라도 성공했는지를 나타낸다.
 
 | 도구 | 설명 |
 |---|---|
@@ -466,7 +466,8 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 | `get_bid_eligibility` | 면허제한·참가가능지역 조회 |
 | `get_bid_items` | 구매대상물품(품명·수량·단가 등) 조회 |
 | `get_bid_attachments` | 공고 첨부파일(공고문·규격서·제안요청서 등)의 파일명·URL 조회 |
-| `download_attachments` | 첨부 파일을 디스크에 저장하고 HWPX·구형 HWP·구형 DOC·ZIP(내부 재귀) 본문 텍스트 추출 (파일 저장) |
+| `download_attachments` | 첨부를 전부 디스크에 내려받고 ZIP은 풀어 읽을 수 있는 파일 목록(매니페스트) 반환 (파일 저장) |
+| `read_attachment` | 파일 목록의 index로 파일 하나의 본문 텍스트(HWPX·구형 HWP·구형 DOC) 읽기 |
 
 ### `search_bid_notices`
 
@@ -559,7 +560,7 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 
 ### `get_bid_attachments`
 
-입찰공고번호로 그 공고의 첨부파일 파일명·URL을 조회한다. 공고 본문 규격첨부(공고문·규격서·제안요청서·과업지시서 등)를 주 소스로, e발주·혁신장터 최종제안요청서(RFP) 첨부를 함께 반환한다. 파일 자체는 내려받지 않고 URL만 반환한다. 파일을 받아 본문을 읽으려면 `download_attachments`를 쓴다.
+입찰공고번호로 그 공고의 첨부파일 파일명·URL을 조회한다. 공고 본문 규격첨부(공고문·규격서·제안요청서·과업지시서 등)를 주 소스로, e발주·혁신장터 최종제안요청서(RFP) 첨부를 함께 반환한다. 파일 자체는 내려받지 않고 URL만 반환한다. 파일을 내려받아 목록을 얻으려면 `download_attachments`, 본문을 읽으려면 `read_attachment`를 쓴다.
 
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
@@ -569,21 +570,35 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 
 ### `download_attachments`
 
-첨부 파일을 디스크에 저장하고 HWPX·구형 HWP·구형 DOC 본문 텍스트를 추출해 반환한다(이들을 담은 ZIP은 내부 파일을 재귀 추출). `get_bid_attachments`가 URL만 돌려주는 데 반해, 이 도구는 실제 파일 저장과 내용 읽기가 필요할 때 쓴다. 제안요청서·과업지시서 내용을 요약·질의응답할 때 유용하다.
+공고 첨부를 전부 디스크에 내려받고 ZIP은 풀어, 읽을 수 있는 **파일 목록(매니페스트)**을 반환한다(본문 텍스트는 담지 않는다). 개별 파일 본문은 이 목록의 `index`를 `read_attachment`에 줘서 읽는다. `get_bid_attachments`가 URL만 돌려주는 데 반해, 이 도구는 실제 파일을 확보하고 목록을 만든다.
 
 > [!IMPORTANT]
-> 이 도구는 읽기 전용이 아니다(`readOnlyHint: false`). 첨부를 `<저장 디렉터리>/<공고번호>/` 아래에 저장한다. 저장 위치는 `DATA_GO_KR_DOWNLOAD_DIR`(미설정 시 `~/Downloads`)로 정한다. 이미 저장된 파일은 재다운로드 없이 재사용하며, 갱신은 감지하지 않는다(최신본이 필요하면 공고 폴더를 지우고 다시 호출).
+> 이 도구는 읽기 전용이 아니다(`readOnlyHint: false`). 첨부를 `<저장 디렉터리>/<공고번호>/` 아래에 저장한다. 저장 위치는 `DATA_GO_KR_DOWNLOAD_DIR`(미설정 시 `~/Downloads`)로 정한다. 이미 저장된 파일은 재다운로드 없이 재사용한다. 첨부가 나중에 바뀌면 `refresh: true`로 다시 호출해 새로 받는다.
 
-HWPX·구형 HWP·구형 DOC와 이들을 담은 ZIP만 텍스트를 추출하고, 그 외 포맷은 파일만 저장한다(원본 바이트는 응답에 담지 않는다). ZIP은 하나의 첨부로 두되 내부 지원 파일(hwpx·hwp·doc)을 파일명 헤더(`=== 파일명 ===`)와 함께 본문으로 합쳐 준다(중첩 ZIP은 재귀하지 않는다).
+ZIP은 목록에서 사라지고 내부 파일이 항목으로 펼쳐지며 `container`에 원본 ZIP명이 담긴다(중첩 ZIP은 재귀하지 않는다). 각 항목의 `extractable: true`면 `read_attachment`로 본문(HWPX·구형 HWP·구형 DOC)을 읽을 수 있고, `false`면 파일만 저장돼 있다.
 
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
 | `bidNtceNo` | `string` | 입찰공고번호. 필수 |
-| `fileIndex` | `number` | 특정 첨부 하나의 전문을 페이지네이션할 때 `files` 배열 인덱스(0-base). 미지정 시 전 첨부의 앞부분 미리보기를 반환 |
-| `offset` | `number` | `fileIndex` 지정 시 그 첨부 텍스트의 시작 문자 오프셋(기본 0) |
-| `maxChars` | `number` | `fileIndex` 지정 시 반환 문자 상한(기본 50000). 미지정 프리뷰는 첨부당 3000자 |
+| `refresh` | `boolean` | `true`면 디스크 캐시를 무시하고 모든 첨부를 새로 내려받는다(기본 `false`는 재사용) |
 
-반환: `{ bidNtceNo, anySucceeded, resolveErrors?, files, truncatedFileList? }`. `files`는 첨부별 `DownloadedFile`(다운로드·추출 실패를 파일별로 표면화). 저장 성공 파일은 `savedPath`·`byteSize`·`format`(`hwpx`/`hwp`/`doc`/`zip`/`other`)·`extractStatus`(`full`/`preview`/`unsupported`/`error`)·`text`·`textLength`·`truncated`를 담는다. `truncated: true`는 다음 페이지가 남았다는 신호다(`offset`을 올려 이어 읽는다).
+반환: `{ bidNtceNo, anySucceeded, resolveErrors?, files, truncatedFileList? }`. `files`는 파일 매니페스트로, 각 항목은 `index`·`fileNm`·`container?`(담고 있는 ZIP명)·`format`(`hwpx`/`hwp`/`doc`/`other`)·`extractable`·`byteSize?`·`savedPath`·`note?`(미해제 사유 등)를 담는다.
+
+### `read_attachment`
+
+`download_attachments`가 준 파일 목록에서 `index`로 파일 하나를 골라 본문 텍스트를 읽는다. HWPX·구형 HWP·구형 DOC를 추출하며 ZIP 내부 파일도 `index`로 직접 읽는다(`container`에 원본 ZIP명). 이미 내려받은 파일은 재사용하고, 없으면 그 파일만 내려받는다.
+
+> [!IMPORTANT]
+> 이 도구도 없는 파일은 그 파일만 내려받으므로 읽기 전용이 아니다(`readOnlyHint: false`).
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `bidNtceNo` | `string` | 입찰공고번호. 필수 |
+| `index` | `number` | 읽을 파일의 목록 인덱스(0-base). `download_attachments` 응답 `files[].index`. 필수 |
+| `offset` | `number` | 본문 텍스트의 시작 문자 오프셋(기본 0). 긴 문서를 이어 읽을 때 |
+| `maxChars` | `number` | 반환 문자 상한(기본 50000). `truncated: true`면 `offset`을 올려 이어 읽는다 |
+
+반환: `{ bidNtceNo, index, fileNm, container?, format, extractStatus, extractError?, byteSize?, savedPath, text, textLength, truncated }`. `extractStatus`는 `full`/`preview`/`unsupported`/`error`. `truncated: true`는 다음 구간이 남았다는 신호다.
 
 ## 응답 필드
 

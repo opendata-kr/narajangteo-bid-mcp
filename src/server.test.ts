@@ -41,9 +41,10 @@ describe("createServer", () => {
         "get_bid_items",
         "get_bid_attachments",
         "download_attachments",
+        "read_attachment",
       ]),
     );
-    expect(names.length).toBe(9);
+    expect(names.length).toBe(10);
 
     await client.close();
     await server.close();
