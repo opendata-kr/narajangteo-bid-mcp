@@ -2,6 +2,13 @@
 
 이 프로젝트의 주요 변경 사항을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르고, 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [0.5.0](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.4.0...v0.5.0) (2026-07-13)
+
+
+### Features
+
+* **attachments:** zip을 디스크로 풀어 저장하고 영속 카탈로그로 index 직독 ([38d524f](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/38d524f0cb058c567f9ca18a7451d54604a0f2d9))
+
 ## [0.4.0](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.3.1...v0.4.0) (2026-07-13)
 
 
