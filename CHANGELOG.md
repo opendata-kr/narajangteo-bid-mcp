@@ -2,6 +2,19 @@
 
 이 프로젝트의 주요 변경 사항을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르고, 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [0.4.0](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.3.1...v0.4.0) (2026-07-13)
+
+
+### Features
+
+* **attachments:** zip 첨부 내부 재귀 추출과 구형 DOC 추출 지원 ([748f139](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/748f139dd297cc531434c54dd1bec2b9376ac09a))
+* **attachments:** 첨부를 다운로드+파일목록과 index 읽기 2-도구로 재설계 ([0e1f766](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/0e1f766121b03281c3cebdba05062978ee8e18bc))
+
+
+### Documentation
+
+* **attachments:** get_bid_attachments 설명의 형제 도구 안내를 세 도구로 정정 ([db85344](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/db85344b75dd8ba2c88bb76327a76a6fe62e74e7))
+
 ## [0.3.1](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.3.0...v0.3.1) (2026-07-13)
 
 
