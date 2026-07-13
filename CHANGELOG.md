@@ -2,6 +2,22 @@
 
 이 프로젝트의 주요 변경 사항을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르고, 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [0.3.0](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.2.1...v0.3.0) (2026-07-13)
+
+
+### Features
+
+* **attachments:** download_attachments 도구 추가 ([b865f5a](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/b865f5a9ecb4c2cb1de877abe1b2054d767f052e))
+* **attachments:** download_attachments 출력 타입과 cfb·fflate 의존 추가 ([8233ec2](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/8233ec2da005fafa63a722fa16978b34ee14cdb3))
+* **attachments:** HWPX·구형 HWP 텍스트 추출 계층 추가 ([525eeb5](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/525eeb59baefe67533653c341b7f01d3e09214f5))
+* **attachments:** 파일 다운로드·저장 계층 추가 ([0c05e39](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/0c05e396d6f167e7f249716505aba4ffd535ebe8))
+* **attachments:** 페이지네이션 재다운로드 제거(디스크 재사용·대상 한정) ([5acd03d](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/5acd03d47786ec8eae3dccd762c140e6a323ae1d))
+
+
+### Documentation
+
+* **roadmap:** 첨부 재다운로드 제거(D3) 백로그 반영 ([791fc8a](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/791fc8ad586c83ba51c0bd07eee0c1f6747b35c0))
+
 ## [0.2.1](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.2.0...v0.2.1) (2026-07-08)
 
 
