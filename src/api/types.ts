@@ -79,3 +79,27 @@ export interface BidAttachment {
   fileUrl: string;
   docDivNm: string;
 }
+
+// download_attachments 도구 출력. 파일별 다운로드·추출 단계 실패를 per-file로 표면화한다.
+export type DownloadedFile =
+  | { fileNm: string; downloadStatus: "error"; error: string }
+  | {
+      fileNm: string;
+      downloadStatus: "ok";
+      savedPath: string;
+      byteSize: number;
+      format: "hwpx" | "hwp" | "other";
+      extractStatus: "full" | "preview" | "unsupported" | "error";
+      text: string;
+      textLength: number;
+      truncated: boolean;
+      extractError?: string;
+    };
+
+export interface DownloadAttachmentsResult {
+  bidNtceNo: string;
+  anySucceeded: boolean;
+  resolveErrors?: Record<string, string>;
+  files: DownloadedFile[];
+  truncatedFileList?: boolean;
+}
