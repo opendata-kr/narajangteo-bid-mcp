@@ -17,7 +17,7 @@ describe("createServer", () => {
     expect(typeof server.connect).toBe("function");
   });
 
-  it("8개 도구를 모두 등록한다(핸드셰이크)", async () => {
+  it("9개 도구를 모두 등록한다(핸드셰이크)", async () => {
     const server = createServer(gatewayClient);
     const [clientTransport, serverTransport] =
       InMemoryTransport.createLinkedPair();
@@ -40,9 +40,10 @@ describe("createServer", () => {
         "get_bid_eligibility",
         "get_bid_items",
         "get_bid_attachments",
+        "download_attachments",
       ]),
     );
-    expect(names.length).toBe(8);
+    expect(names.length).toBe(9);
 
     await client.close();
     await server.close();

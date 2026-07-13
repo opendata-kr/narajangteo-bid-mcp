@@ -85,6 +85,9 @@ export interface DownloadOptions {
   maxBytes?: number;
   timeoutMs?: number;
   index?: number;
+  // 한 호출 안에서 이미 쓴 파일명 집합. 주입하면 디스크가 아니라 이 집합으로만 동명을
+  // 판정한다(호출 간에는 같은 첨부가 같은 경로로 덮어써져 사본이 누적되지 않는다).
+  reserved?: Set<string>;
 }
 
 export interface DownloadResult {
@@ -92,16 +95,26 @@ export interface DownloadResult {
   byteSize: number;
 }
 
-// 동명 파일이 있으면 확장자 앞에 ` (n)`을 붙여 충돌을 피한다: `제안요청서 (1).hwpx`.
-function uniqueSavedPath(saveDir: string, name: string): string {
+// 동명이면 확장자 앞에 ` (n)`을 붙여 충돌을 피한다: `제안요청서 (1).hwpx`.
+// reserved(호출 스코프 집합)를 주면 그 집합으로만 판정하고 선택한 이름을 등록한다. 없으면
+// 디스크 존재(existsSync)로 판정한다. reserved 방식은 재호출 시 같은 경로를 재사용해(open "w"가
+// 덮어씀) 사본이 누적되지 않게 한다.
+function uniqueSavedPath(
+  saveDir: string,
+  name: string,
+  reserved?: Set<string>,
+): string {
   const ext = path.extname(name);
   const stem = name.slice(0, name.length - ext.length);
+  const taken = (candidate: string): boolean =>
+    reserved ? reserved.has(candidate) : existsSync(path.join(saveDir, candidate));
   let candidate = name;
   let n = 1;
-  while (existsSync(path.join(saveDir, candidate))) {
+  while (taken(candidate)) {
     candidate = `${stem} (${n})${ext}`;
     n += 1;
   }
+  reserved?.add(candidate);
   return path.join(saveDir, candidate);
 }
 
@@ -127,7 +140,7 @@ export async function downloadToFile(
   if (!isInside(resolvedDir, path.resolve(saveDir, safeName))) {
     safeName = sanitizeSegment(fallbackName, fallbackName);
   }
-  const savedPath = uniqueSavedPath(saveDir, safeName);
+  const savedPath = uniqueSavedPath(saveDir, safeName, opts.reserved);
 
   const controller = new AbortController();
   let timedOut = false;

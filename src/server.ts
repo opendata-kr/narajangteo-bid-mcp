@@ -40,6 +40,12 @@ import {
   runAttachments,
   type AttachmentsArgs,
 } from "./tools/attachments.js";
+import {
+  downloadAttachmentsInputShape,
+  downloadAttachmentsDescription,
+  runDownloadAttachments,
+  type DownloadAttachmentsArgs,
+} from "./tools/downloadAttachments.js";
 import { withKeyHint, errMessage } from "@opendata-kr/core";
 
 function textResult(payload: unknown, isError = false) {
@@ -202,6 +208,24 @@ export function createServer(client: DataGoKrClient): McpServer {
     async (args) => {
       try {
         return textResult(await runAttachments(client, args as AttachmentsArgs));
+      } catch (err) {
+        return errorText(err, client);
+      }
+    },
+  );
+
+  // 파일 저장 도구는 readOnlyHint:false 예외(디스크에 파일을 쓴다). 나머지 도구는 조회 전용.
+  server.registerTool(
+    "download_attachments",
+    {
+      title: "입찰공고 첨부 다운로드·본문 추출",
+      description: downloadAttachmentsDescription,
+      inputSchema: downloadAttachmentsInputShape,
+      annotations: { readOnlyHint: false, openWorldHint: true },
+    },
+    async (args) => {
+      try {
+        return textResult(await runDownloadAttachments(client, args as DownloadAttachmentsArgs));
       } catch (err) {
         return errorText(err, client);
       }

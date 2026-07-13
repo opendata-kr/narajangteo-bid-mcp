@@ -10,7 +10,7 @@ export const attachmentsInputShape = {
 };
 export type AttachmentsArgs = { bidNtceNo: string };
 
-const LABELS = ["eorder", "innovationRfp"] as const; // I, J 순서(ATTACH_OPS 정렬)
+export const LABELS = ["eorder", "innovationRfp"] as const; // I, J 순서(ATTACH_OPS 정렬)
 
 export interface AttachmentsResult {
   bidNtceNo: string; anySucceeded: boolean;

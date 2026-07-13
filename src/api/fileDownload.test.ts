@@ -144,6 +144,23 @@ describe("downloadToFile", () => {
     expect(existsSync(path.join(dir, "chunked.bin"))).toBe(false);
   });
 
+  it("reserved 집합을 주면 디스크가 아닌 집합으로 동명을 판정한다(재호출 덮어쓰기)", async () => {
+    const bytes = new TextEncoder().encode("v2");
+    const fetch = makeFetch(() => streamResponse(bytes));
+    // 같은 reserved 안에서 두 번째 동명은 서픽스.
+    const reserved = new Set<string>();
+    const a = await downloadToFile("http://x/f", "리포트.hwp", dir, { fetch, reserved });
+    const b = await downloadToFile("http://x/f", "리포트.hwp", dir, { fetch, reserved });
+    expect(path.basename(a.savedPath)).toBe("리포트.hwp");
+    expect(path.basename(b.savedPath)).toBe("리포트 (1).hwp");
+    // 새 reserved(다음 호출)면 디스크에 파일이 있어도 같은 경로를 재사용해 덮어쓴다.
+    const c = await downloadToFile("http://x/f", "리포트.hwp", dir, {
+      fetch,
+      reserved: new Set<string>(),
+    });
+    expect(path.basename(c.savedPath)).toBe("리포트.hwp");
+  });
+
   it("위조된 content-length(작은 값+큰 본문)도 스트리밍 누적으로 잡아 거부한다", async () => {
     const big = new Uint8Array(10);
     const fetch = makeFetch(() => streamResponse(big, 2)); // 선언 2, 실제 10
