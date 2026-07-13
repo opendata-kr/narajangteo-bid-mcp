@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, readdirSync, existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { strToU8, zipSync } from "fflate";
@@ -10,7 +10,6 @@ const SERVC_OP = "getBidPblancListInfoServc";
 const EORDER_OP = "getBidPblancListInfoEorderAtchFileInfo";
 const RFP_OP = "getBidPblancListPPIFnlRfpIssAtchFileInfo";
 
-// 공고 규격첨부(notice) item = ntceSpec 쌍. resolveAttachments가 이를 top-level 첨부로 편다.
 function noticeItem(pairs: [string, string][]): RawItem {
   const o: Record<string, string> = { bidNtceNo: "R26", bidNtceOrd: "000" };
   pairs.forEach(([nm, url], i) => {
@@ -20,7 +19,6 @@ function noticeItem(pairs: [string, string][]): RawItem {
   return o as RawItem;
 }
 
-// servc 목록 op가 규격첨부를, 첨부 op는 빈 응답을 준다.
 function makeClient(noticePairs: [string, string][]): DataGoKrClient {
   return {
     call: async (op: string) => {
@@ -44,7 +42,7 @@ function makeFetch(map: Record<string, Uint8Array>): typeof fetch {
 
 let tmp: string;
 beforeAll(() => {
-  tmp = mkdtempSync(path.join(os.tmpdir(), "dl-manifest-"));
+  tmp = mkdtempSync(path.join(os.tmpdir(), "dl-catalog-"));
   process.env.DATA_GO_KR_DOWNLOAD_DIR = tmp;
 });
 afterAll(() => {
@@ -52,50 +50,52 @@ afterAll(() => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
-describe("runDownloadAttachments (매니페스트)", () => {
-  it("최상위 파일을 매니페스트로 반환한다(본문 텍스트 없음)", async () => {
+describe("runDownloadAttachments (파일 카탈로그)", () => {
+  it("최상위 파일을 디스크에 받고 카탈로그로 반환한다(savedPath=실제 파일)", async () => {
     const client = makeClient([
       ["제안요청서.hwpx", "https://f/a"],
       ["안내.pdf", "https://f/b"],
     ]);
     const fetchFn = makeFetch({ "https://f/a": makeHwpx("x"), "https://f/b": strToU8("%PDF") });
-    const out = await runDownloadAttachments(client, { bidNtceNo: "R26A" }, { fetch: fetchFn });
+    const out = await runDownloadAttachments(client, { bidNtceNo: "C1" }, { fetch: fetchFn });
 
     expect(out.files.map((f) => f.fileNm)).toEqual(["제안요청서.hwpx", "안내.pdf"]);
     expect(out.files[0]).toMatchObject({ index: 0, format: "hwpx", extractable: true });
     expect(out.files[1]).toMatchObject({ index: 1, format: "other", extractable: false });
+    // savedPath가 실제 디스크 파일을 가리키고 존재한다.
+    expect(existsSync(out.files[0]!.savedPath)).toBe(true);
     expect(out.files[0]!.byteSize).toBeGreaterThan(0);
-    // 매니페스트엔 본문 텍스트가 없다.
-    expect((out.files[0] as unknown as Record<string, unknown>).text).toBeUndefined();
+    // 카탈로그가 영속된다.
+    expect(existsSync(path.join(tmp, "C1", ".attachments-manifest.json"))).toBe(true);
   });
 
-  it("zip은 내부 파일로 펼치고 container에 원본 zip명을 담는다", async () => {
+  it("zip은 내부 파일로 평탄하게 풀고 원본 zip은 삭제한다", async () => {
     const zip = zipSync({
       "제안요청서.hwpx": makeHwpx("본문"),
-      "공고.doc": strToU8("x"),
-      "스캔.pdf": strToU8("y"),
+      "공고.doc": strToU8("D"),
+      "스캔.pdf": strToU8("P"),
     });
     const client = makeClient([["공고파일.zip", "https://f/zip"]]);
-    const fetchFn = makeFetch({ "https://f/zip": zip });
-    const out = await runDownloadAttachments(client, { bidNtceNo: "R26Z" }, { fetch: fetchFn });
+    const out = await runDownloadAttachments(client, { bidNtceNo: "CZ" }, { fetch: makeFetch({ "https://f/zip": zip }) });
 
-    // zip 컨테이너는 목록에 없고 내부 3개가 펼쳐진다.
+    // zip 컨테이너는 목록에 없고 내부 3개가 펼쳐진다(container 표기).
     expect(out.files.map((f) => f.fileNm)).toEqual(["제안요청서.hwpx", "공고.doc", "스캔.pdf"]);
     expect(out.files.every((f) => f.container === "공고파일.zip")).toBe(true);
-    expect(out.files[0]).toMatchObject({ format: "hwpx", extractable: true });
-    expect(out.files[1]).toMatchObject({ format: "doc", extractable: true });
-    expect(out.files[2]).toMatchObject({ format: "other", extractable: false, note: "미지원 포맷" });
-    // index는 0..2로 평평하다.
-    expect(out.files.map((f) => f.index)).toEqual([0, 1, 2]);
+    // 디스크엔 풀린 파일만, 원본 zip은 없다.
+    const onDisk = readdirSync(path.join(tmp, "CZ")).filter((n) => !n.startsWith("."));
+    expect(onDisk.sort()).toEqual(["공고.doc", "스캔.pdf", "제안요청서.hwpx"]);
+    expect(onDisk).not.toContain("공고파일.zip");
+    // 내부 파일도 savedPath로 디스크에 존재.
+    expect(existsSync(out.files[0]!.savedPath)).toBe(true);
   });
 
   it("첨부 0건이면 files=[]·anySucceeded=true", async () => {
-    const out = await runDownloadAttachments(makeClient([]), { bidNtceNo: "EMPTY" });
+    const out = await runDownloadAttachments(makeClient([]), { bidNtceNo: "CE" });
     expect(out.files).toEqual([]);
     expect(out.anySucceeded).toBe(true);
   });
 
-  it("refresh=true면 캐시를 무시하고 재다운로드한다", async () => {
+  it("캐시 재사용: 두 번째 호출은 재다운로드하지 않고, refresh=true는 다시 받는다", async () => {
     let hits = 0;
     const fetchFn = (async () => {
       hits += 1;
@@ -103,10 +103,10 @@ describe("runDownloadAttachments (매니페스트)", () => {
     }) as unknown as typeof fetch;
     const client = makeClient([["문서.hwpx", "https://f/r"]]);
 
-    await runDownloadAttachments(client, { bidNtceNo: "REF" }, { fetch: fetchFn });
-    await runDownloadAttachments(client, { bidNtceNo: "REF" }, { fetch: fetchFn }); // 재사용
+    await runDownloadAttachments(client, { bidNtceNo: "CR" }, { fetch: fetchFn });
+    await runDownloadAttachments(client, { bidNtceNo: "CR" }, { fetch: fetchFn }); // 카탈로그 재사용
     expect(hits).toBe(1);
-    await runDownloadAttachments(client, { bidNtceNo: "REF", refresh: true }, { fetch: fetchFn }); // 강제
+    await runDownloadAttachments(client, { bidNtceNo: "CR", refresh: true }, { fetch: fetchFn });
     expect(hits).toBe(2);
   });
 });

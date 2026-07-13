@@ -15,11 +15,13 @@ Claude Desktop 등 MCP 클라이언트에서 입찰공고를 자연어로 검색
 - "인천광역시에서 추정가격 5억 원 이상인 공사 입찰을 검색해줘"
 - "입찰공고번호 R25BK00932003 상세를 알려줘"
 - "그 공고의 기초금액과 참가 가능 지역을 알려줘"
-- "그 공고에 첨부된 파일 목록을 보여줘"
+- "그 공고의 첨부파일을 내려받아 제안요청서 내용을 요약해줘"
+- "그 공고 첨부 중 과업지시서 본문을 읽어줘"
 
 ## 특징
 
 - **4개 업무구분 병렬 검색**: 공사/용역/물품/외자를 한 번에 조회한다. 업무구분 미지정 시 기타(etc)를 제외한 4구분(공사/용역/물품/외자)을 동시 검색하며, 기타공고는 `bidKind`에 `etc`를 명시한다.
+- **첨부 다운로드·본문 읽기**: 공고 첨부(공고문·규격서·제안요청서 등)를 디스크에 내려받고 ZIP은 풀어 파일 목록을 만든 뒤(`download_attachments`), 필요한 파일의 본문(HWPX·구형 HWP·구형 DOC)을 목록 인덱스로 읽는다(`read_attachment`).
 - **부분 실패 표면화**: 일부 구분 조회가 실패해도 나머지 결과를 반환하고, 실패한 구분은 오류 메시지로 드러낸다(조용한 누락 없음).
 - **data.go.kr 에러코드 한국어화**: 인증키 만료, 트래픽 초과 등 결과코드를 조치 가능한 한국어 메시지로 정규화한다.
 - **이중 인코딩 방어**: Encoding 키를 잘못 넣으면 경고하고, 요청은 한 번만 인코딩한다.
@@ -570,35 +572,35 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 
 ### `download_attachments`
 
-공고 첨부를 전부 디스크에 내려받고 ZIP은 풀어, 읽을 수 있는 **파일 목록(매니페스트)**을 반환한다(본문 텍스트는 담지 않는다). 개별 파일 본문은 이 목록의 `index`를 `read_attachment`에 줘서 읽는다. `get_bid_attachments`가 URL만 돌려주는 데 반해, 이 도구는 실제 파일을 확보하고 목록을 만든다.
+공고 첨부를 전부 디스크에 내려받고 ZIP은 풀어(원본 ZIP은 삭제), 읽을 수 있는 **파일 목록(카탈로그)**을 반환한다(본문 텍스트는 담지 않는다). 개별 파일 본문은 이 목록의 `index`를 `read_attachment`에 줘서 읽는다. `get_bid_attachments`가 URL만 돌려주는 데 반해, 이 도구는 실제 파일을 확보하고 목록을 만든다.
 
 > [!IMPORTANT]
-> 이 도구는 읽기 전용이 아니다(`readOnlyHint: false`). 첨부를 `<저장 디렉터리>/<공고번호>/` 아래에 저장한다. 저장 위치는 `DATA_GO_KR_DOWNLOAD_DIR`(미설정 시 `~/Downloads`)로 정한다. 이미 저장된 파일은 재다운로드 없이 재사용한다. 첨부가 나중에 바뀌면 `refresh: true`로 다시 호출해 새로 받는다.
+> 이 도구는 읽기 전용이 아니다(`readOnlyHint: false`). 첨부를 `<저장 디렉터리>/<공고번호>/` 아래에 **평탄하게**(ZIP 내부 파일도 같은 폴더로 풀어) 저장하고, 목록을 그 폴더의 `.attachments-manifest.json`에 남긴다. 저장 위치는 `DATA_GO_KR_DOWNLOAD_DIR`(미설정 시 `~/Downloads`)로 정한다. 이미 만든 목록·파일은 재사용한다(전 첨부를 한 번 내려받아야 목록의 `index`가 생기므로, 파일 하나만 읽으려 해도 첫 호출은 전체를 받는다). 첨부가 나중에 바뀌면 `refresh: true`로 다시 호출해 새로 받는다.
 
-ZIP은 목록에서 사라지고 내부 파일이 항목으로 펼쳐지며 `container`에 원본 ZIP명이 담긴다(중첩 ZIP은 재귀하지 않는다). 각 항목의 `extractable: true`면 `read_attachment`로 본문(HWPX·구형 HWP·구형 DOC)을 읽을 수 있고, `false`면 파일만 저장돼 있다.
+ZIP은 목록에서 사라지고 내부 파일이 항목으로 펼쳐지며 `container`에 원본 ZIP명이 담긴다(중첩 ZIP은 재귀하지 않고 파일로만 남긴다). 각 항목의 `extractable: true`면 `read_attachment`로 본문(HWPX·구형 HWP·구형 DOC)을 읽을 수 있고, `false`(PDF·이미지 등)면 파일만 저장돼 있으니 `savedPath`로 직접 연다.
 
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
 | `bidNtceNo` | `string` | 입찰공고번호. 필수 |
-| `refresh` | `boolean` | `true`면 디스크 캐시를 무시하고 모든 첨부를 새로 내려받는다(기본 `false`는 재사용) |
+| `refresh` | `boolean` | `true`면 디스크 캐시를 무시하고 모든 첨부를 새로 내려받아 목록을 다시 만든다(기본 `false`는 재사용) |
 
-반환: `{ bidNtceNo, anySucceeded, resolveErrors?, files, truncatedFileList? }`. `files`는 파일 매니페스트로, 각 항목은 `index`·`fileNm`·`container?`(담고 있는 ZIP명)·`format`(`hwpx`/`hwp`/`doc`/`other`)·`extractable`·`byteSize?`·`savedPath`·`note?`(미해제 사유 등)를 담는다.
+반환: `{ bidNtceNo, anySucceeded, resolveErrors?, files, truncatedFileList? }`. `files`는 파일 카탈로그로, 각 항목은 `index`·`fileNm`·`container?`(담고 있던 ZIP명)·`format`(`hwpx`/`hwp`/`doc`/`other`)·`extractable`·`byteSize`·`savedPath`·`note?`(미해제 사유 등)를 담는다. `resolveErrors`는 첨부 소스(`notice`·`eorder`·`innovationRfp`)별 조회 실패 메시지, `truncatedFileList: true`는 파일 수가 상한(50)을 넘어 목록이 잘렸다는 신호다(본문 잘림을 뜻하는 `read_attachment`의 `truncated`와 다르다).
 
 ### `read_attachment`
 
-`download_attachments`가 준 파일 목록에서 `index`로 파일 하나를 골라 본문 텍스트를 읽는다. HWPX·구형 HWP·구형 DOC를 추출하며 ZIP 내부 파일도 `index`로 직접 읽는다(`container`에 원본 ZIP명). 이미 내려받은 파일은 재사용하고, 없으면 그 파일만 내려받는다.
+`download_attachments`가 준 파일 목록에서 `index`로 파일 하나를 골라 본문 텍스트를 읽는다. HWPX·구형 HWP·구형 DOC를 추출하며(그 외 `format`은 `extractable: false`라 본문이 비고 `savedPath`로 직접 열어야 한다) ZIP 내부 파일도 `index`로 직접 읽는다(`container`에 원본 ZIP명). 이미 내려받은 파일은 디스크에서 재사용하고, 목록이 아직 없으면 자동으로 먼저 내려받는다.
 
 > [!IMPORTANT]
-> 이 도구도 없는 파일은 그 파일만 내려받으므로 읽기 전용이 아니다(`readOnlyHint: false`).
+> 이 도구도 목록이 없으면 첨부를 내려받으므로 읽기 전용이 아니다(`readOnlyHint: false`).
 
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
 | `bidNtceNo` | `string` | 입찰공고번호. 필수 |
 | `index` | `number` | 읽을 파일의 목록 인덱스(0-base). `download_attachments` 응답 `files[].index`. 필수 |
-| `offset` | `number` | 본문 텍스트의 시작 문자 오프셋(기본 0). 긴 문서를 이어 읽을 때 |
-| `maxChars` | `number` | 반환 문자 상한(기본 50000). `truncated: true`면 `offset`을 올려 이어 읽는다 |
+| `offset` | `number` | 본문 텍스트의 시작 문자 오프셋(기본 0). 긴 문서를 이어 읽을 때 이전 응답의 `textLength` 위치를 준다 |
+| `maxChars` | `number` | 반환 문자 상한(기본 50000). `truncated: true`면 `offset`을 이 반환분(`text` 길이)만큼 올려 다음 구간을 읽는다 |
 
-반환: `{ bidNtceNo, index, fileNm, container?, format, extractStatus, extractError?, byteSize?, savedPath, text, textLength, truncated }`. `extractStatus`는 `full`/`preview`/`unsupported`/`error`. `truncated: true`는 다음 구간이 남았다는 신호다.
+반환: `{ bidNtceNo, index, fileNm, container?, format, extractStatus, extractError?, byteSize, savedPath, text, textLength, truncated }`. `extractStatus`는 `full`(본문 전량)/`preview`(구형 HWP 등에서 미리보기 텍스트만 추출)/`unsupported`(추출 대상 아님)/`error`(추출 실패). `truncated: true`는 본문의 다음 구간이 남았다는 신호다.
 
 ## 응답 필드
 

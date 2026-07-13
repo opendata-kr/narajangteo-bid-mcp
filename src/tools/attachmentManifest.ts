@@ -1,160 +1,148 @@
-import { existsSync, statSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import type { DataGoKrClient } from "@opendata-kr/core";
+import { existsSync } from "node:fs";
+import { readFile, writeFile, unlink } from "node:fs/promises";
+import path from "node:path";
+import { errMessage, type DataGoKrClient } from "@opendata-kr/core";
 import { resolveAttachments } from "./attachments.js";
 import { resolveSaveDir, planSavedPath, downloadToPath, type DownloadOptions } from "../api/fileDownload.js";
-import { formatFor, type ExtractFormat } from "../extract/index.js";
-import { listZipEntries, readZipEntry } from "../extract/zip.js";
+import { formatFor } from "../extract/index.js";
+import { extractZipToEntries } from "../extract/zip.js";
 
-// download_attachments(매니페스트)와 read_attachment(단건 읽기)가 공유하는 해소 계층.
-// 첨부 URL 해소 → 디스크 확보 → zip 펼침 → 평평한 매니페스트를 결정적으로 만든다.
-// 매니페스트 순서(그러므로 index)는 (첨부 해소 순서 + zip 엔트리 순서)로 결정적이라 두 도구가
-// 같은 index를 본다. 첨부가 바뀌면 index가 흔들리므로 refresh로 재다운로드한다.
+// download_attachments(카탈로그)와 read_attachment(단건 읽기)가 공유하는 해소 계층.
+// 첨부를 전부 디스크에 내려받고 zip은 풀어(원본 zip 삭제) 평평한 파일 카탈로그를 만든 뒤,
+// 카탈로그를 공고 폴더의 `.attachments-manifest.json`에 영속한다. read는 이 파일을 읽어
+// index로 디스크 파일을 직접 연다(API 재조회·재-unzip 없음 → index 안정성이 API 순서에 의존하지 않음).
 
 export type ManifestFormat = "hwpx" | "hwp" | "doc" | "other";
 
 export interface AttachmentManifestEntry {
   index: number;
-  fileNm: string;
-  container?: string; // zip 내부 파일이면 그 zip 파일명
+  fileNm: string; // 디스크에 저장된 실제 파일명
+  container?: string; // zip에서 풀렸으면 원본 zip 파일명
   format: ManifestFormat;
   extractable: boolean; // read_attachment로 본문 추출 가능(hwpx·hwp·doc)
-  byteSize?: number; // zip 내부=압축해제 크기, 최상위=디스크 크기
-  savedPath: string; // 최상위=그 파일 경로, zip 내부=담고 있는 zip 경로
-  note?: string; // 미해제 사유·다운로드 실패 등
+  byteSize: number;
+  savedPath: string; // 실제 파일의 디스크 경로
+  note?: string; // 미해제 사유 등
 }
 
-interface TopLevel {
-  fileNm: string;
-  fileUrl: string;
-  savedPath: string;
-  format: ExtractFormat;
-}
-
-export interface ManifestResolution {
+export interface AttachmentManifest {
   bidNtceNo: string;
-  saveDir: string;
-  topLevel: TopLevel[];
-  manifest: AttachmentManifestEntry[];
   anySucceeded: boolean;
   resolveErrors?: Record<string, string>;
+  files: AttachmentManifestEntry[];
   truncatedFileList?: boolean;
 }
 
+const MANIFEST_FILE = ".attachments-manifest.json";
 const MAX_MANIFEST = 50;
 
 function isExtractable(fmt: ManifestFormat): boolean {
   return fmt === "hwpx" || fmt === "hwp" || fmt === "doc";
 }
 
-function topLevelFormat(f: ExtractFormat): ManifestFormat {
-  return f === "zip" ? "other" : f; // zip은 펼쳐지므로 컨테이너 항목엔 안 나옴
+function toManifestFormat(f: ReturnType<typeof formatFor>): ManifestFormat {
+  return f === "zip" ? "other" : f;
 }
 
-async function ensureFile(
-  savedPath: string,
-  fileUrl: string,
-  refresh: boolean,
-  opts: DownloadOptions,
-): Promise<number> {
-  if (!refresh && existsSync(savedPath)) return statSync(savedPath).size;
-  const { byteSize } = await downloadToPath(fileUrl, savedPath, opts);
-  return byteSize;
+async function loadPersisted(saveDir: string): Promise<AttachmentManifest | null> {
+  const p = path.join(saveDir, MANIFEST_FILE);
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(await readFile(p, "utf8")) as AttachmentManifest;
+  } catch {
+    return null; // 손상 매니페스트는 없는 것으로 보고 재생성
+  }
 }
 
-// 매니페스트를 만든다. downloadNonZip=true면 최상위 비-zip도 미리 받고(byteSize 확정),
-// false면 디스크에 있을 때만 크기를 채운다. zip은 열거를 위해 항상 확보한다.
-export async function resolveManifest(
+// 전 첨부를 디스크에 확보하고 zip을 풀어 카탈로그를 만든 뒤 영속한다. 이미 영속본이 있고
+// refresh가 아니면 그대로 재사용한다(디스크·매니페스트 재생성 스킵).
+export async function materialize(
   client: DataGoKrClient,
   bidNtceNo: string,
-  opts: { downloadNonZip: boolean; refresh?: boolean } & DownloadOptions,
-): Promise<ManifestResolution> {
+  opts: { refresh?: boolean } & DownloadOptions,
+): Promise<AttachmentManifest> {
+  const saveDir = await resolveSaveDir(bidNtceNo);
+  if (!opts.refresh) {
+    const cached = await loadPersisted(saveDir);
+    if (cached) return cached;
+  }
+
   const { results, anySucceeded, flattened } = await resolveAttachments(client, bidNtceNo);
   const errEntries: Record<string, string> = {};
   for (const [label, r] of Object.entries(results)) if (r.status === "error") errEntries[label] = r.error;
   const resolveErrors = Object.keys(errEntries).length ? errEntries : undefined;
 
-  const saveDir = await resolveSaveDir(bidNtceNo);
-  const reserved = new Set<string>();
-  const topLevel: TopLevel[] = flattened.map((a, i) => ({
-    fileNm: a.fileNm,
-    fileUrl: a.fileUrl,
-    savedPath: planSavedPath(saveDir, a.fileNm, i, reserved),
-    format: formatFor(a.fileNm),
-  }));
-
   const dlOpts: DownloadOptions = { fetch: opts.fetch, maxBytes: opts.maxBytes, timeoutMs: opts.timeoutMs };
-  const manifest: AttachmentManifestEntry[] = [];
+  const reserved = new Set<string>(); // 공고 폴더 내 평탄 배치의 동명 유일화(전 파일 공유)
+  const files: AttachmentManifestEntry[] = [];
   let truncated = false;
 
-  for (const t of topLevel) {
-    if (manifest.length >= MAX_MANIFEST) { truncated = true; break; }
+  const push = (e: Omit<AttachmentManifestEntry, "index">): boolean => {
+    if (files.length >= MAX_MANIFEST) { truncated = true; return false; }
+    files.push({ index: files.length, ...e });
+    return true;
+  };
+
+  for (const t of flattened) {
+    if (files.length >= MAX_MANIFEST) { truncated = true; break; }
+    const fmt = formatFor(t.fileNm);
     try {
-      if (t.format === "zip") {
-        await ensureFile(t.savedPath, t.fileUrl, !!opts.refresh, dlOpts); // 열거하려면 바이트 필요
-        const zipBuf = await readFile(t.savedPath);
-        const listing = listZipEntries(zipBuf);
-        if (listing.error) {
-          manifest.push({ index: manifest.length, fileNm: t.fileNm, format: "other", extractable: false, byteSize: statSync(t.savedPath).size, savedPath: t.savedPath, note: listing.error });
+      if (fmt === "zip") {
+        // zip을 임시로 받아 메모리로 읽고 내부 파일을 평탄 저장한 뒤 원본 zip은 지운다.
+        const tmpZip = planSavedPath(saveDir, t.fileNm, files.length, reserved);
+        await downloadToPath(t.fileUrl, tmpZip, dlOpts);
+        let zipBuf: Buffer;
+        try {
+          zipBuf = await readFile(tmpZip);
+        } finally {
+          reserved.delete(path.basename(tmpZip)); // zip 이름은 슬롯 점유하지 않는다(삭제되므로)
+        }
+        const extraction = extractZipToEntries(zipBuf);
+        await unlink(tmpZip).catch(() => {});
+        if (extraction.error) {
+          push({ fileNm: t.fileNm, format: "other", extractable: false, byteSize: zipBuf.length, savedPath: tmpZip, note: extraction.error });
           continue;
         }
-        for (const e of listing.entries) {
-          if (manifest.length >= MAX_MANIFEST) { truncated = true; break; }
-          manifest.push({
-            index: manifest.length,
-            fileNm: e.name,
-            container: t.fileNm,
-            format: e.format,
-            extractable: e.extractable,
-            byteSize: e.originalSize,
-            savedPath: t.savedPath,
-            ...(e.reason ? { note: e.reason } : {}),
-          });
+        if (extraction.truncated) truncated = true;
+        for (const e of extraction.entries) {
+          const savedPath = planSavedPath(saveDir, e.name, files.length, reserved);
+          await writeFile(savedPath, e.data);
+          if (!push({ fileNm: path.basename(savedPath), container: t.fileNm, format: e.format, extractable: e.extractable, byteSize: e.data.length, savedPath, ...(e.reason ? { note: e.reason } : {}) })) break;
         }
-        if (listing.truncated) truncated = true;
       } else {
-        let byteSize: number | undefined;
-        if (opts.downloadNonZip) byteSize = await ensureFile(t.savedPath, t.fileUrl, !!opts.refresh, dlOpts);
-        else if (existsSync(t.savedPath)) byteSize = statSync(t.savedPath).size;
-        const format = topLevelFormat(t.format);
-        manifest.push({
-          index: manifest.length,
-          fileNm: t.fileNm,
-          format,
-          extractable: isExtractable(format),
-          ...(byteSize !== undefined ? { byteSize } : {}),
-          savedPath: t.savedPath,
-        });
+        const savedPath = planSavedPath(saveDir, t.fileNm, files.length, reserved);
+        let byteSize: number;
+        if (!opts.refresh && existsSync(savedPath)) {
+          byteSize = (await readFile(savedPath)).length;
+        } else {
+          ({ byteSize } = await downloadToPath(t.fileUrl, savedPath, dlOpts));
+        }
+        const format = toManifestFormat(fmt);
+        push({ fileNm: path.basename(savedPath), format, extractable: isExtractable(format), byteSize, savedPath });
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      manifest.push({ index: manifest.length, fileNm: t.fileNm, format: topLevelFormat(t.format), extractable: false, savedPath: t.savedPath, note: `다운로드 실패: ${msg}` });
+      const savedPath = path.join(saveDir, t.fileNm);
+      push({ fileNm: t.fileNm, format: toManifestFormat(fmt), extractable: false, byteSize: 0, savedPath, note: `다운로드 실패: ${errMessage(err)}` });
     }
   }
 
-  return {
-    bidNtceNo, saveDir, topLevel, manifest, anySucceeded,
+  const manifest: AttachmentManifest = {
+    bidNtceNo, anySucceeded, files,
     ...(resolveErrors ? { resolveErrors } : {}),
     ...(truncated ? { truncatedFileList: true } : {}),
   };
+  await writeFile(path.join(saveDir, MANIFEST_FILE), JSON.stringify(manifest, null, 2)).catch(() => {});
+  return manifest;
 }
 
-// 매니페스트 항목의 원본 바이트를 확보한다. zip 내부면 디스크 zip에서 해당 엔트리만 풀고,
-// 최상위면 디스크 파일(없으면 다운로드)을 읽는다. 추출 불가·미해제 항목은 호출측이 먼저 거른다.
-export async function loadEntryBuffer(
-  resolution: ManifestResolution,
-  entry: AttachmentManifestEntry,
-  opts: { refresh?: boolean } & DownloadOptions,
-): Promise<Buffer> {
-  if (entry.container) {
-    const zipBuf = await readFile(entry.savedPath); // resolveManifest가 zip을 이미 확보
-    const inner = readZipEntry(zipBuf, entry.fileNm);
-    if (!inner) throw new Error(`zip 내부 파일(${entry.fileNm})을 풀지 못했습니다. 크기 상한 초과이거나 손상일 수 있습니다.`);
-    return inner;
-  }
-  const top = resolution.topLevel.find((t) => t.savedPath === entry.savedPath);
-  if (!top) throw new Error(`첨부 원본 URL을 찾지 못했습니다(index ${entry.index}).`);
-  const dlOpts: DownloadOptions = { fetch: opts.fetch, maxBytes: opts.maxBytes, timeoutMs: opts.timeoutMs };
-  await ensureFile(entry.savedPath, top.fileUrl, !!opts.refresh, dlOpts);
-  return readFile(entry.savedPath);
+// read_attachment용: 영속 카탈로그를 읽고, 없으면 materialize한다.
+export async function loadOrMaterialize(
+  client: DataGoKrClient,
+  bidNtceNo: string,
+  opts: DownloadOptions,
+): Promise<AttachmentManifest> {
+  const saveDir = await resolveSaveDir(bidNtceNo);
+  const cached = await loadPersisted(saveDir);
+  if (cached) return cached;
+  return materialize(client, bidNtceNo, opts);
 }

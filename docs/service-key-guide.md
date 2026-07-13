@@ -1,4 +1,4 @@
-<!-- mcp-name: io.github.opendata-kr/narajangteo-bid -->
+<!-- mcp-name: io.github.opendata-kr/narajangteo-bid-mcp -->
 
 # data.go.kr 인증키 발급 가이드
 

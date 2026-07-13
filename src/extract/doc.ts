@@ -110,6 +110,10 @@ function cleanText(raw: string): string {
     .trim();
 }
 
+// 압축(8비트) 조각은 latin1이 아니라 cp1252(windows-1252)다. 0x80-0x9F가 다르므로 정확한
+// 디코더를 쓴다(스마트따옴표·대시 등 오독 방지). 한글 본문은 UTF-16 조각이라 이 경로 밖이다.
+const CP1252 = new TextDecoder("windows-1252");
+
 // 조각을 WordDocument에서 읽어 인코딩대로 디코드하고 이어붙인다.
 function decodePieces(wd: Buffer, pieces: Piece[]): string {
   let text = "";
@@ -117,7 +121,7 @@ function decodePieces(wd: Buffer, pieces: Piece[]): string {
     if (p.compressed) {
       const end = Math.min(p.fcStart + p.nChars, wd.length);
       if (p.fcStart >= end) continue;
-      text += wd.subarray(p.fcStart, end).toString("latin1"); // cp1252 근사(한글은 UTF-16 조각)
+      text += CP1252.decode(wd.subarray(p.fcStart, end));
     } else {
       const end = Math.min(p.fcStart + p.nChars * 2, wd.length);
       if (p.fcStart >= end) continue;

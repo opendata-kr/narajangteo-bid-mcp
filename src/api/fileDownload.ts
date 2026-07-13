@@ -1,6 +1,7 @@
 import { mkdir, open, unlink, rename } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { errMessage } from "@opendata-kr/core";
 
 // 첨부 파일 다운로드·저장 계층. 경로순회 방어, 크기·타임아웃 가드, 실패 시 부분파일 정리를
 // 담당한다. 추출·도구 로직은 이 파일에 두지 않는다.
@@ -8,9 +9,6 @@ import path from "node:path";
 const DEFAULT_MAX_BYTES = 104857600; // 100 MiB
 const DEFAULT_TIMEOUT_MS = 60000;
 const MAX_SEGMENT_LEN = 200;
-
-const errMessage = (err: unknown): string =>
-  err instanceof Error ? err.message : String(err);
 
 // env 값을 유한한 숫자로만 채택한다. 미설정·빈값·비숫자는 undefined로 흘려 기본값이 이긴다.
 function envNumber(key: string): number | undefined {

@@ -56,6 +56,7 @@ export function formatNoticeSpecAttachments(raw: RawItem): BidAttachment[] {
   const bidNtceNo = pick(raw, "bidNtceNo");
   const bidNtceOrd = pick(raw, "bidNtceOrd");
   const out: BidAttachment[] = [];
+  // 공고규격서: ntceSpecDocUrl1~10 (파일명 ntceSpecFileNm 짝 있음)
   for (let i = 1; i <= 10; i += 1) {
     const fileUrl = pick(raw, `ntceSpecDocUrl${i}`);
     if (!fileUrl) continue;
@@ -64,7 +65,19 @@ export function formatNoticeSpecAttachments(raw: RawItem): BidAttachment[] {
       bidNtceOrd,
       fileNm: pick(raw, `ntceSpecFileNm${i}`) ?? "",
       fileUrl,
-      docDivNm: "",
+      docDivNm: "공고규격서",
+    });
+  }
+  // 현장설명서: sptDscrptDocUrl1~5 (파일명 필드 없음 → 합성명). 명세 정의 필드, 공사 공고에서 드묾.
+  for (let i = 1; i <= 5; i += 1) {
+    const fileUrl = pick(raw, `sptDscrptDocUrl${i}`);
+    if (!fileUrl) continue;
+    out.push({
+      bidNtceNo,
+      bidNtceOrd,
+      fileNm: `현장설명서${i}`,
+      fileUrl,
+      docDivNm: "현장설명서",
     });
   }
   return out;

@@ -1,22 +1,22 @@
 import { unzipSync } from "fflate";
 
-// zip 첨부(공고파일.zip 등)는 안에 hwpx·hwp·doc를 묶는다. 펼침 모델에서 zip은 텍스트로
-// 추출하지 않고 내부 파일을 매니페스트 항목으로 펼친다. 여기선 두 순수 연산만 제공한다.
-// (1) 압축 해제 없이 내부 목록 열거(listZipEntries), (2) 지정 엔트리 하나만 해제(readZipEntry).
-// 가드: 경로 안전(zip slip), 엔트리 수 상한(열거), 엔트리당 해제용량 상한(읽기).
+// zip 첨부(공고파일.zip 등)는 안에 hwpx·hwp·doc를 묶는다. 펼침 모델에서 zip은 디스크로 전량
+// 추출한 뒤 원본 zip을 지운다(사용자의 다운로드 폴더엔 실제 파일만 남는다). 여기선 순수 연산으로
+// 내부 엔트리를 압축 해제해 {이름, 바이트, 포맷, 지원여부}로 돌려준다. 디스크 쓰기는 호출측이 한다.
+// 가드: 경로 안전(zip slip)·중첩 zip 미재귀·엔트리 수 상한·엔트리당 해제용량 상한.
 
 export type ZipEntryFormat = "hwpx" | "hwp" | "doc" | "other";
 
-export interface ZipEntryInfo {
-  name: string;
+export interface ZipEntry {
+  name: string; // zip 내부 엔트리 원본 이름(호출측이 sanitize)
+  data: Buffer;
   format: ZipEntryFormat;
-  originalSize: number; // 압축 해제 크기(zip 중앙 디렉터리)
-  extractable: boolean; // hwpx·hwp·doc
-  reason?: string; // 미지원·중첩 zip·경로 안전 등(extractable=false 사유)
+  extractable: boolean; // hwpx·hwp·doc(본문 추출 가능)
+  reason?: string; // extractable=false 사유(미지원·중첩 zip)
 }
 
-export interface ZipListing {
-  entries: ZipEntryInfo[];
+export interface ZipExtraction {
+  entries: ZipEntry[];
   truncated: boolean;
   error?: string;
 }
@@ -38,50 +38,45 @@ function isUnsafePath(name: string): boolean {
   return name.split(/[\\/]/).includes("..");
 }
 
-// 압축 해제 없이 내부 엔트리를 열거한다. filter가 항상 false를 돌려주므로 바이트는 풀지 않고
-// 메타데이터(name·originalSize)만 수집한다. 지원 판정·미해제 사유를 함께 매긴다.
-export function listZipEntries(buf: Buffer, maxEntries = DEFAULT_MAX_ENTRIES): ZipListing {
-  const entries: ZipEntryInfo[] = [];
+// zip을 전량 압축 해제해 엔트리 목록으로 돌려준다. 경로 안전 위반·초과분은 건너뛰고(truncated·미포함),
+// 엔트리당 해제용량 상한은 fflate filter의 originalSize로 선거른다. 미지원 포맷·중첩 zip도 파일로는
+// 남겨 사용자가 열 수 있게 하되 extractable=false로 표시한다(중첩 zip은 재귀만 안 함).
+export function extractZipToEntries(
+  buf: Buffer,
+  opts?: { maxEntries?: number; maxEntryBytes?: number },
+): ZipExtraction {
+  const maxEntries = opts?.maxEntries ?? DEFAULT_MAX_ENTRIES;
+  const maxEntryBytes = opts?.maxEntryBytes ?? DEFAULT_MAX_ENTRY_BYTES;
+  const meta = new Map<string, { format: ZipEntryFormat; extractable: boolean; reason?: string }>();
   let count = 0;
   let truncated = false;
+
+  let files: Record<string, Uint8Array>;
   try {
-    unzipSync(new Uint8Array(buf), {
+    files = unzipSync(new Uint8Array(buf), {
       filter: (file: { name: string; originalSize: number }) => {
         const name = file.name;
         if (name.endsWith("/")) return false; // 디렉터리
         if (count >= maxEntries) { truncated = true; return false; }
+        if (isUnsafePath(name)) { truncated = true; return false; } // 경로 안전 위반은 아예 제외
+        if (file.originalSize > maxEntryBytes) { truncated = true; return false; } // 크기 초과 제외
         count += 1;
         const format = formatOf(name);
-        if (isUnsafePath(name)) {
-          entries.push({ name, format, originalSize: file.originalSize, extractable: false, reason: "경로 안전 위반" });
-        } else if (/\.zip$/i.test(name)) {
-          entries.push({ name, format: "other", originalSize: file.originalSize, extractable: false, reason: "중첩 zip(재귀 안 함)" });
-        } else if (format === "other") {
-          entries.push({ name, format, originalSize: file.originalSize, extractable: false, reason: "미지원 포맷" });
-        } else {
-          entries.push({ name, format, originalSize: file.originalSize, extractable: true });
-        }
-        return false; // 목록만: 해제 안 함
+        if (/\.zip$/i.test(name)) meta.set(name, { format: "other", extractable: false, reason: "중첩 zip(재귀 안 함)" });
+        else if (format === "other") meta.set(name, { format, extractable: false, reason: "미지원 포맷" });
+        else meta.set(name, { format, extractable: true });
+        return true;
       },
     });
   } catch (err) {
-    return { entries: [], truncated: false, error: `zip 목록 해석에 실패했습니다(zip이 아니거나 손상): ${err instanceof Error ? err.message : String(err)}` };
+    return { entries: [], truncated: false, error: `zip 해제에 실패했습니다(zip이 아니거나 손상): ${err instanceof Error ? err.message : String(err)}` };
+  }
+
+  const entries: ZipEntry[] = [];
+  for (const [name, m] of meta) {
+    const data = files[name];
+    if (!data) continue; // fflate가 동명 엔트리를 합치면 일부 이름이 빌 수 있다(마지막만 유지)
+    entries.push({ name, data: Buffer.from(data), format: m.format, extractable: m.extractable, ...(m.reason ? { reason: m.reason } : {}) });
   }
   return { entries, truncated };
-}
-
-// 지정 엔트리 하나만 압축 해제해 버퍼로 돌려준다. 경로 안전·중첩 zip은 여기서도 거부하고,
-// 엔트리당 해제용량 상한을 넘으면 undefined(호출측이 미지원 처리).
-export function readZipEntry(
-  buf: Buffer,
-  name: string,
-  maxEntryBytes = DEFAULT_MAX_ENTRY_BYTES,
-): Buffer | undefined {
-  if (isUnsafePath(name) || /\.zip$/i.test(name)) return undefined;
-  const out = unzipSync(new Uint8Array(buf), {
-    filter: (file: { name: string; originalSize: number }) =>
-      file.name === name && file.originalSize <= maxEntryBytes,
-  });
-  const data = out[name];
-  return data ? Buffer.from(data) : undefined;
 }
