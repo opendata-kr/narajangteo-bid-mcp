@@ -21,13 +21,16 @@ function makeCorruptHwpx(): Uint8Array {
 const PDF_BYTES = strToU8("%PDF-1.4 not-a-hangul-doc");
 
 // op별 응답을 흉내내는 손 stub. call(op)가 op명으로 분기해 {totalCount, items} 또는 throw.
+// 목록 op(Cnstwk/Servc/Thng/Frgcpt/Etc)는 공고 규격첨부(notice) 소스로 라우팅한다.
 function makeClient(scenario: {
   eorder?: RawItem[] | "throw";
   rfp?: RawItem[] | "throw";
+  notice?: RawItem[] | "throw";
 }): DataGoKrClient {
   const fake = {
     call: async (op: string) => {
-      const which = op === EORDER_OP ? scenario.eorder : op === RFP_OP ? scenario.rfp : [];
+      const which =
+        op === EORDER_OP ? scenario.eorder : op === RFP_OP ? scenario.rfp : scenario.notice;
       if (which === "throw") throw new Error(`${op} 조회 실패`);
       const items = which ?? [];
       return { totalCount: items.length, items };
@@ -41,6 +44,15 @@ const eorderItem = (fileNm: string, fileUrl: string): RawItem =>
   ({ eorderAtchFileNm: fileNm, eorderAtchFileUrl: fileUrl }) as RawItem;
 const rfpItem = (fileNm: string, fileUrl: string): RawItem =>
   ({ atchFileNm: fileNm, atchFileUrl: fileUrl }) as RawItem;
+// 기본 목록 응답 item(ntceSpecFileNm/DocUrl 쌍) 빌더 = 공고 규격첨부 소스.
+const noticeItem = (pairs: [string, string][]): RawItem => {
+  const o: Record<string, string> = { bidNtceNo: "R26", bidNtceOrd: "000" };
+  pairs.forEach(([nm, url], i) => {
+    o[`ntceSpecFileNm${i + 1}`] = nm;
+    o[`ntceSpecDocUrl${i + 1}`] = url;
+  });
+  return o as RawItem;
+};
 
 // url→바이트 맵으로 fetch를 흉내낸다. "throw"면 다운로드 단계 실패.
 function makeFetch(map: Record<string, Uint8Array | "throw">): typeof fetch {
@@ -88,8 +100,8 @@ describe("runDownloadAttachments", () => {
     if (fail.downloadStatus === "error") expect(fail.error).toContain("네트워크");
   });
 
-  it("두 op가 모두 API 에러면 anySucceeded=false·resolveErrors 존재·files=[]", async () => {
-    const client = makeClient({ eorder: "throw", rfp: "throw" });
+  it("세 소스가 모두 API 에러면 anySucceeded=false·resolveErrors 존재·files=[]", async () => {
+    const client = makeClient({ eorder: "throw", rfp: "throw", notice: "throw" });
     const out = await runDownloadAttachments(client, { bidNtceNo: "RESOLVEERR" });
 
     expect(out.anySucceeded).toBe(false);
@@ -97,15 +109,32 @@ describe("runDownloadAttachments", () => {
     expect(out.resolveErrors).toBeDefined();
     expect(out.resolveErrors).toHaveProperty("eorder");
     expect(out.resolveErrors).toHaveProperty("innovationRfp");
+    expect(out.resolveErrors).toHaveProperty("notice");
   });
 
   it("첨부 0건이면 anySucceeded=true·resolveErrors 없음·files=[]", async () => {
-    const client = makeClient({ eorder: [], rfp: [] });
+    const client = makeClient({ eorder: [], rfp: [], notice: [] });
     const out = await runDownloadAttachments(client, { bidNtceNo: "EMPTY" });
 
     expect(out.anySucceeded).toBe(true);
     expect(out.files).toEqual([]);
     expect(out.resolveErrors).toBeUndefined();
+  });
+
+  it("공고 규격첨부(notice 소스)를 다운로드·추출한다", async () => {
+    const client = makeClient({
+      notice: [noticeItem([["제안요청서.hwpx", "https://g/spec"]])],
+    });
+    const fetchFn = makeFetch({ "https://g/spec": makeHwpx("규격본문") });
+
+    const out = await runDownloadAttachments(client, { bidNtceNo: "SPEC1" }, { fetch: fetchFn });
+    expect(out.files).toHaveLength(1);
+    const f = out.files[0]!;
+    if (f.downloadStatus === "ok") {
+      expect(f.fileNm).toBe("제안요청서.hwpx");
+      expect(f.extractStatus).toBe("full");
+      expect(f.text).toBe("규격본문");
+    } else throw new Error("ok여야 함");
   });
 
   it("프리뷰 모드: 각 파일 text를 PREVIEW_CHARS로 컷하고 truncated를 반영한다", async () => {

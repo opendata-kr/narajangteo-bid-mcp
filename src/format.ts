@@ -49,3 +49,23 @@ export function formatAttachment(raw: RawItem): BidAttachment {
     docDivNm: pick(raw, "eorderDocDivNm") ?? pick(raw, "atchDocDivNm") ?? "",
   };
 }
+
+// 기본 목록 응답의 공고 규격첨부(ntceSpecFileNm/DocUrl 1..10 쌍)를 첨부 목록으로 정규화한다.
+// 이것이 첨부의 주경로다. 공고문·규격서·제안요청서가 여기로 온다. 전용 첨부 op(e발주·혁신장터RFP)는 드문 특수 케이스라 대부분 공고에서 비어 있다.
+export function formatNoticeSpecAttachments(raw: RawItem): BidAttachment[] {
+  const bidNtceNo = pick(raw, "bidNtceNo");
+  const bidNtceOrd = pick(raw, "bidNtceOrd");
+  const out: BidAttachment[] = [];
+  for (let i = 1; i <= 10; i += 1) {
+    const fileUrl = pick(raw, `ntceSpecDocUrl${i}`);
+    if (!fileUrl) continue;
+    out.push({
+      bidNtceNo,
+      bidNtceOrd,
+      fileNm: pick(raw, `ntceSpecFileNm${i}`) ?? "",
+      fileUrl,
+      docDivNm: "",
+    });
+  }
+  return out;
+}

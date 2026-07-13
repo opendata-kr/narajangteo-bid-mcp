@@ -465,7 +465,7 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 | `get_bid_change_history` | 공고 변경이력(정정·변경 항목) 조회 |
 | `get_bid_eligibility` | 면허제한·참가가능지역 조회 |
 | `get_bid_items` | 구매대상물품(품명·수량·단가 등) 조회 |
-| `get_bid_attachments` | e발주·혁신장터 RFP 첨부파일의 파일명·URL 조회 |
+| `get_bid_attachments` | 공고 첨부파일(공고문·규격서·제안요청서 등)의 파일명·URL 조회 |
 | `download_attachments` | 첨부 파일을 디스크에 저장하고 HWPX·구형 HWP 본문 텍스트 추출 (파일 저장) |
 
 ### `search_bid_notices`
@@ -559,17 +559,17 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 
 ### `get_bid_attachments`
 
-입찰공고번호로 e발주 첨부파일과 혁신장터 최종제안요청서(RFP) 첨부파일의 파일명·URL을 조회한다. 대부분 공고는 첨부파일이 비어 있으며, 파일 자체를 내려받지 않고 URL만 반환한다. 파일을 받아 본문을 읽으려면 `download_attachments`를 쓴다.
+입찰공고번호로 그 공고의 첨부파일 파일명·URL을 조회한다. 공고 본문 규격첨부(공고문·규격서·제안요청서·과업지시서 등)를 주 소스로, e발주·혁신장터 최종제안요청서(RFP) 첨부를 함께 반환한다. 파일 자체는 내려받지 않고 URL만 반환한다. 파일을 받아 본문을 읽으려면 `download_attachments`를 쓴다.
 
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
 | `bidNtceNo` | `string` | 입찰공고번호. 필수 |
 
-반환: `{ bidNtceNo, anySucceeded, results }`. `results`는 `eorder`(e발주)와 `innovationRfp`(혁신장터 RFP) 두 키로 `BidAttachment[]`를 담는다.
+반환: `{ bidNtceNo, anySucceeded, results }`. `results`는 `notice`(공고 규격첨부)·`eorder`(e발주)·`innovationRfp`(혁신장터 RFP) 세 키로 `BidAttachment[]`를 담는다.
 
 ### `download_attachments`
 
-첨부 파일을 디스크에 저장하고 HWPX·구형 HWP 본문 텍스트를 추출해 반환한다. `get_attachments`가 URL만 돌려주는 데 반해, 이 도구는 실제 파일 저장과 내용 읽기가 필요할 때 쓴다. 제안요청서·과업지시서 내용을 요약·질의응답할 때 유용하다.
+첨부 파일을 디스크에 저장하고 HWPX·구형 HWP 본문 텍스트를 추출해 반환한다. `get_bid_attachments`가 URL만 돌려주는 데 반해, 이 도구는 실제 파일 저장과 내용 읽기가 필요할 때 쓴다. 제안요청서·과업지시서 내용을 요약·질의응답할 때 유용하다.
 
 > [!IMPORTANT]
 > 이 도구는 읽기 전용이 아니다(`readOnlyHint: false`). 첨부를 `<저장 디렉터리>/<공고번호>/` 아래에 저장한다. 저장 위치는 `DATA_GO_KR_DOWNLOAD_DIR`(미설정 시 `~/Downloads`)로 정한다. 이미 저장된 파일은 재다운로드 없이 재사용하며, 갱신은 감지하지 않는다(최신본이 필요하면 공고 폴더를 지우고 다시 호출).
