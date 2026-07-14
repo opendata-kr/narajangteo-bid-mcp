@@ -2,6 +2,25 @@
 
 이 프로젝트의 주요 변경 사항을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르고, 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [0.6.0](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.5.0...v0.6.0) (2026-07-14)
+
+
+### Features
+
+* **api:** core 0.4.1 스키마 검증 전송으로 이행, invalidCount·트래픽 소모 노출 ([#13](https://github.com/opendata-kr/narajangteo-bid-mcp/issues/13)) ([3b5ad4e](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/3b5ad4ebc719cb6d1b1d2894e79fb8dafd08db1b))
+
+
+### Bug Fixes
+
+* **server:** MCP 핸드셰이크 버전을 release-please 동기화 실버전으로 보고 ([d075f21](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/d075f21e34bdb1b51051426169324d237908a304))
+
+
+### Documentation
+
+* **roadmap:** core 이행 표기를 0.4 계열로 정정 ([c630711](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/c630711d0f26a3c6de489cf9d4ab6b00d27993ec))
+* **roadmap:** MCP 표준 감사 후속 백로그 등록 (version.ts·icons·core 이행) ([eeeb2b5](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/eeeb2b56f5ec865eb3b962b523cec242cfdcaf0c))
+* **roadmap:** 감사 후속 A1·A2 완료 반영 ([85d76ac](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/85d76acc022f2e88b4b7620909c2abb64f94a015))
+
 ## [0.5.0](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.4.0...v0.5.0) (2026-07-13)
 
 
