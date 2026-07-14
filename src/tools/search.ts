@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { dateRangeParams, type DataGoKrClient } from "@opendata-kr/core";
+import { dateRangeParams, type DataGoKrClient, type Params } from "@opendata-kr/core";
 import { searchOperation, type BidKind } from "../api/endpoints.js";
+import { RawBidNoticeSchema } from "../api/schema.js";
 import { formatItem } from "../format.js";
 import { runOps, type OpOutcome } from "../api/runOps.js";
 import type { BidNotice } from "../api/types.js";
@@ -18,7 +19,7 @@ export const searchInputShape = {
     .array(z.enum(["cnstwk", "servc", "thng", "frgcpt", "etc"]))
     .optional()
     .describe(
-      "업무구분 배열(cnstwk=공사, servc=용역, thng=물품, frgcpt=외자, etc=기타). 미지정 시 기타 제외 4구분 병렬 검색",
+      "업무구분 배열(cnstwk=공사, servc=용역, thng=물품, frgcpt=외자, etc=기타). 미지정 시 기타 제외 4구분 병렬 검색으로 API 요청 4건을 소모한다. 업무구분을 알면 지정해 인증키 일일 트래픽을 아낀다",
     ),
   keyword: z.string().optional().describe("공고명 부분 검색(bidNtceNm)"),
   startDate: z
@@ -45,25 +46,13 @@ export const searchInputShape = {
     .describe("페이지당 건수(기본 10)"),
 };
 
-export type SearchArgs = {
-  bidKind?: BidKind[];
-  keyword?: string;
-  startDate?: string;
-  endDate?: string;
-  institution?: string;
-  demandInstitution?: string;
-  region?: string;
-  industry?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  page?: number;
-  pageSize?: number;
-};
+// inputSchema에서 파생해 shape와 타입의 원천을 하나로 유지한다(수동 중복·드리프트 방지).
+export type SearchArgs = z.infer<z.ZodObject<typeof searchInputShape>>;
 
 export interface SearchResult {
   query: SearchArgs;
   anySucceeded: boolean;
-  results: Record<string, OpOutcome<BidNotice>>;
+  results: Partial<Record<BidKind, OpOutcome<BidNotice>>>;
 }
 
 function ymd(d: Date): string {
@@ -120,7 +109,7 @@ export async function runSearch(
     );
   }
 
-  const params: Record<string, string | number | undefined> = {
+  const params: Params = {
     pageNo: args.page ?? 1,
     numOfRows: args.pageSize ?? 10,
     inqryDiv: "1", // 공고게시일시 (PPSSrch 필수)
@@ -137,6 +126,7 @@ export async function runSearch(
   const { results, anySucceeded } = await runOps(
     client,
     kinds.map((k) => ({ label: k, op: searchOperation(k), params })),
+    RawBidNoticeSchema,
     formatItem,
   );
   return { query: args, anySucceeded, results };

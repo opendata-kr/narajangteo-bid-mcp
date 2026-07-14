@@ -1,13 +1,10 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { describe, expect, it, vi } from "vitest";
-import type { DataGoKrClient } from "@opendata-kr/core";
+import { describe, expect, it } from "vitest";
+import { makeTestClient } from "./test-helpers.js";
 import { createServer } from "./server.js";
 
-const gatewayClient: DataGoKrClient = {
-  serviceKeyLooksPreEncoded: false,
-  call: vi.fn(),
-};
+const gatewayClient = makeTestClient({}).client;
 
 describe("createServer", () => {
   it("McpServer 인스턴스를 생성한다", () => {

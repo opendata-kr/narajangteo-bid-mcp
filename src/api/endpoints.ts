@@ -5,10 +5,14 @@ export const BID_KIND_LABEL: Record<BidKind, string> = {
 };
 
 // 기본조회/검색: 4종 + etc(옵트인). 기본 kind 집합엔 etc 제외(Task 5/6에서 제어).
-export const NOTICE_KINDS: readonly BidKind[] = ["cnstwk", "servc", "thng", "frgcpt", "etc"];
-export const BASIS_KINDS: readonly BidKind[] = ["thng", "cnstwk", "servc"];
-export const CHANGE_KINDS: readonly BidKind[] = ["thng", "cnstwk", "servc"];
-export const ITEM_KINDS: readonly BidKind[] = ["thng", "servc", "frgcpt"];
+export const NOTICE_KINDS = ["cnstwk", "servc", "thng", "frgcpt", "etc"] as const;
+export const BASIS_KINDS = ["thng", "cnstwk", "servc"] as const;
+export const CHANGE_KINDS = ["thng", "cnstwk", "servc"] as const;
+export const ITEM_KINDS = ["thng", "servc", "frgcpt"] as const;
+// kind 부분집합 유니온은 상수 배열에서 파생해 원천을 하나로 유지한다.
+export type BasisKind = (typeof BASIS_KINDS)[number];
+export type ChangeKind = (typeof CHANGE_KINDS)[number];
+export type ItemKind = (typeof ITEM_KINDS)[number];
 
 const LIST_OP: Record<BidKind, string> = {
   cnstwk: "getBidPblancListInfoCnstwk",
@@ -28,17 +32,17 @@ export const listOperation = (k: BidKind): string => LIST_OP[k];
 export const searchOperation = (k: BidKind): string => SEARCH_OP[k];
 
 // 오퍼레이션명 3규칙 혼재라 개별 박제
-export const BASIS_OP: Record<"thng" | "cnstwk" | "servc", string> = {
+export const BASIS_OP: Record<BasisKind, string> = {
   thng: "getBidPblancListInfoThngBsisAmount",
   cnstwk: "getBidPblancListInfoCnstwkBsisAmount",
   servc: "getBidPblancListInfoServcBsisAmount",
 };
-export const CHANGE_OP: Record<"thng" | "cnstwk" | "servc", string> = {
+export const CHANGE_OP: Record<ChangeKind, string> = {
   thng: "getBidPblancListInfoChgHstryThng",
   cnstwk: "getBidPblancListInfoChgHstryCnstwk",
   servc: "getBidPblancListInfoChgHstryServc",
 };
-export const ITEM_OP: Record<"thng" | "servc" | "frgcpt", string> = {
+export const ITEM_OP: Record<ItemKind, string> = {
   thng: "getBidPblancListInfoThngPurchsObjPrdct",
   servc: "getBidPblancListInfoServcPurchsObjPrdct",
   frgcpt: "getBidPblancListInfoFrgcptPurchsObjPrdct",

@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { strToU8, zipSync } from "fflate";
-import type { DataGoKrClient, RawItem } from "@opendata-kr/core";
+import type { DataGoKrClient } from "@opendata-kr/core";
+import { makeTestClient } from "../test-helpers.js";
 import { runReadAttachment } from "./readAttachment.js";
 import { runDownloadAttachments } from "./downloadAttachments.js";
 
@@ -11,23 +12,19 @@ const SERVC_OP = "getBidPblancListInfoServc";
 const EORDER_OP = "getBidPblancListInfoEorderAtchFileInfo";
 const RFP_OP = "getBidPblancListPPIFnlRfpIssAtchFileInfo";
 
-function noticeItem(pairs: [string, string][]): RawItem {
+function noticeItem(pairs: [string, string][]): Record<string, unknown> {
   const o: Record<string, string> = { bidNtceNo: "R26", bidNtceOrd: "000" };
   pairs.forEach(([nm, url], i) => {
     o[`ntceSpecFileNm${i + 1}`] = nm;
     o[`ntceSpecDocUrl${i + 1}`] = url;
   });
-  return o as RawItem;
+  return o;
 }
 
 function makeClient(noticePairs: [string, string][]): DataGoKrClient {
-  return {
-    call: async (op: string) => {
-      if (op === EORDER_OP || op === RFP_OP) return { totalCount: 0, items: [] };
-      if (op === SERVC_OP) return { totalCount: 1, items: [noticeItem(noticePairs)] };
-      return { totalCount: 0, items: [] };
-    },
-  } as unknown as DataGoKrClient;
+  return makeTestClient({
+    [SERVC_OP]: { items: [noticeItem(noticePairs)], totalCount: 1 },
+  }).client;
 }
 
 const makeHwpx = (inner: string): Uint8Array =>

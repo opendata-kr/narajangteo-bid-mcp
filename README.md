@@ -449,14 +449,14 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 | 환경변수 | 필수 | 비밀 | 기본값 | 설명 |
 |---|---|---|---|---|
 | `DATA_GO_KR_SERVICE_KEY` | 예 | 예 | (없음) | 공공데이터포털 **Decoding(원본)** 인증키 |
-| `DATA_GO_KR_BASE_URL` | 아니오 | 아니오 | `https://apis.data.go.kr` | 게이트웨이 base 오버라이드 |
+| `DATA_GO_KR_BASE_URL` | 아니오 | 아니오 | `https://apis.data.go.kr/1230000/ad/BidPublicInfoService` | 서비스 경로를 포함한 전체 URL 오버라이드 |
 | `DATA_GO_KR_DOWNLOAD_DIR` | 아니오 | 아니오 | `~/Downloads` | `download_attachments` 저장 기준 디렉터리. 공고번호별 하위폴더로 저장 |
 | `DATA_GO_KR_DOWNLOAD_TIMEOUT_MS` | 아니오 | 아니오 | `60000` | `download_attachments` 파일 다운로드 타임아웃(ms) |
 | `DATA_GO_KR_DOWNLOAD_MAX_BYTES` | 아니오 | 아니오 | `104857600` | `download_attachments` 파일당 다운로드 크기 상한(바이트, 기본 100MB) |
 
 ## 도구
 
-10개 도구 중 8개는 읽기 전용 조회(`readOnlyHint: true`)다. `download_attachments`·`read_attachment`는 첨부 파일을 디스크에 저장할 수 있어 읽기 전용이 아니다(`readOnlyHint: false`). 업무구분·항목별 병렬 조회 도구는 `results`에 조회 단위(업무구분 또는 항목 라벨)마다 성공 시 `{ status: "ok", totalCount, items }`, 실패 시 `{ status: "error", error }`를 담는다. 일부가 실패해도 나머지 결과는 반환하며(부분 실패 표면화), `anySucceeded`는 하나라도 성공했는지를 나타낸다.
+10개 도구 중 8개는 읽기 전용 조회(`readOnlyHint: true`)다. `download_attachments`·`read_attachment`는 첨부 파일을 디스크에 저장할 수 있어 읽기 전용이 아니다(`readOnlyHint: false`). 업무구분·항목별 병렬 조회 도구는 `results`에 조회 단위(업무구분 또는 항목 라벨)마다 성공 시 `{ status: "ok", totalCount, invalidCount, items }`, 실패 시 `{ status: "error", error }`를 담는다. 일부가 실패해도 나머지 결과는 반환하며(부분 실패 표면화), `anySucceeded`는 하나라도 성공했는지를 나타낸다. `invalidCount`는 응답 스키마 검증에서 탈락해 `items`에서 제외된 건수다. 0이 아니면 API 응답 필드가 예고 없이 바뀐 신호이므로 [이슈로 알려주면](https://github.com/opendata-kr/narajangteo-bid-mcp/issues) 반영한다. 병렬 조회는 조회 단위 수만큼 API 요청을 소모하므로 업무구분을 알면 지정해 인증키 일일 트래픽을 아낀다.
 
 | 도구 | 설명 |
 |---|---|
@@ -477,7 +477,7 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
-| `bidKind` | `string[]` | 업무구분 배열: `cnstwk`(공사) `servc`(용역) `thng`(물품) `frgcpt`(외자) `etc`(기타). 미지정 시 기타 제외 4구분, 기타공고는 명시로 옵트인 |
+| `bidKind` | `string[]` | 업무구분 배열: `cnstwk`(공사) `servc`(용역) `thng`(물품) `frgcpt`(외자) `etc`(기타). 미지정 시 기타 제외 4구분(API 요청 4건 소모), 기타공고는 명시로 옵트인 |
 | `keyword` | `string` | 공고명 부분 검색 |
 | `startDate` | `string` | 공고게시 시작일 `YYYYMMDD`. 미지정 시 최근 30일 자동 적용 |
 | `endDate` | `string` | 공고게시 종료일 `YYYYMMDD` |
@@ -501,7 +501,7 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
 | `bidNtceNo` | `string` | 입찰공고번호 (예: `R25BK00932003`). 필수 |
-| `bidKind` | `string` | 업무구분(`cnstwk`·`servc`·`thng`·`frgcpt`·`etc`). 미지정 시 기타 제외 4구분에서 순차 조회, 기타공고는 `etc` 명시 |
+| `bidKind` | `string` | 업무구분(`cnstwk`·`servc`·`thng`·`frgcpt`·`etc`). 미지정 시 기타 제외 4구분에서 순차 조회(API 요청 최대 4건), 기타공고는 `etc` 명시 |
 
 반환: `{ found, bidKind, notice, searchedKinds, errors }`. 찾으면 `found: true`와 `notice`(`BidNotice`), 못 찾으면 `found: false`. `errors`는 조회 중 발생한 오류 메시지다.
 
@@ -512,7 +512,7 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
 | `bidNtceNo` | `string` | 입찰공고번호. 필수 |
-| `bidKind` | `string` | 업무구분(`thng`=물품 `cnstwk`=공사 `servc`=용역). 미지정 시 3구분 병렬 조회 |
+| `bidKind` | `string` | 업무구분(`thng`=물품 `cnstwk`=공사 `servc`=용역). 미지정 시 3구분 병렬 조회(API 요청 3건) |
 
 반환: `{ bidNtceNo, anySucceeded, results }`. `results`는 업무구분별 `BidBasisAmount[]`를 담는다.
 
@@ -533,7 +533,7 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 | 파라미터 | 타입 | 설명 |
 |---|---|---|
 | `bidNtceNo` | `string` | 입찰공고번호. 필수 |
-| `bidKind` | `string` | 업무구분(`thng`=물품 `cnstwk`=공사 `servc`=용역). 미지정 시 3구분 병렬 조회 |
+| `bidKind` | `string` | 업무구분(`thng`=물품 `cnstwk`=공사 `servc`=용역). 미지정 시 3구분 병렬 조회(API 요청 3건) |
 
 반환: `{ bidNtceNo, anySucceeded, results }`. `results`는 업무구분별 `BidChange[]`를 담는다.
 
@@ -556,7 +556,7 @@ DATA_GO_KR_SERVICE_KEY=발급받은_Decoding_키 mcp-proxy --transport streamabl
 |---|---|---|
 | `bidNtceNo` | `string` | 입찰공고번호. 필수 |
 | `bidNtceOrd` | `string` | 입찰공고차수(예: `000`). `get_bid_notice` 결과의 `bidNtceOrd`에서 확인. 미지정 시 `000` |
-| `bidKind` | `string` | 업무구분(`thng`=물품 `servc`=용역 `frgcpt`=외자). 미지정 시 3구분 병렬 조회 |
+| `bidKind` | `string` | 업무구분(`thng`=물품 `servc`=용역 `frgcpt`=외자). 미지정 시 3구분 병렬 조회(API 요청 3건) |
 
 반환: `{ bidNtceNo, bidNtceOrd, anySucceeded, results }`. `results`는 업무구분별 `BidItem[]`를 담는다.
 
