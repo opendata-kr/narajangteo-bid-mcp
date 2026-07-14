@@ -2,6 +2,14 @@
 
 이 프로젝트의 주요 변경 사항을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르고, 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [0.6.1](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.6.0...v0.6.1) (2026-07-14)
+
+
+### Documentation
+
+* **roadmap:** MCP 감사 후속 A3 완료, 백로그 종결 ([e607a5d](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/e607a5dfe2847efdd4c22467a0c225061f501633))
+* **roadmap:** 이행 라이브 재검증 백로그 등록 ([1196d5e](https://github.com/opendata-kr/narajangteo-bid-mcp/commit/1196d5e84a57dc23747127a26bdda7bdc917796a))
+
 ## [0.6.0](https://github.com/opendata-kr/narajangteo-bid-mcp/compare/v0.5.0...v0.6.0) (2026-07-14)
 
 
