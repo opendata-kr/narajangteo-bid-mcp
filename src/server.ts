@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { VERSION } from "./version.js";
 import type { DataGoKrClient } from "@opendata-kr/core";
 import {
   getNoticeInputShape,
@@ -71,7 +72,7 @@ function errorText(err: unknown, client: DataGoKrClient) {
 export function createServer(client: DataGoKrClient): McpServer {
   const server = new McpServer({
     name: "narajangteo-bid-mcp",
-    version: "0.0.0",
+    version: VERSION,
   });
 
   server.registerTool(

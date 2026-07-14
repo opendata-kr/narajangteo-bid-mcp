@@ -1,5 +1,21 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/opendata-kr/.github/main/profile/images/avatar.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": [
+        "any"
+      ]
+    },
+    {
+      "src": "https://raw.githubusercontent.com/opendata-kr/.github/main/profile/images/avatar.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
   "name": "io.github.opendata-kr/narajangteo-bid-mcp",
   "description": "나라장터 입찰공고정보서비스(공공데이터포털 data.go.kr) Open API를 감싼 로컬 MCP 서버",
   "title": "나라장터 입찰공고",
