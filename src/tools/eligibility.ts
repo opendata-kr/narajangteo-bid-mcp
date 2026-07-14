@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { DataGoKrClient } from "@opendata-kr/core";
 import { ELIG_OPS } from "../api/endpoints.js";
+import { RawEligibilitySchema } from "../api/schema.js";
 import { formatEligibility } from "../format.js";
 import { runOps, type OpOutcome } from "../api/runOps.js";
 import type { BidEligibility } from "../api/types.js";
@@ -10,13 +11,15 @@ export const eligibilityInputShape = {
   bidNtceOrd: z.string().optional()
     .describe("입찰공고차수(예: 000). 면허제한·참가가능지역은 차수 단위라 필수. 차수는 get_bid_notice 결과의 bidNtceOrd에서 확인. 미지정 시 000"),
 };
-export type EligibilityArgs = { bidNtceNo: string; bidNtceOrd?: string };
+// inputSchema에서 파생해 shape와 타입의 원천을 하나로 유지한다.
+export type EligibilityArgs = z.infer<z.ZodObject<typeof eligibilityInputShape>>;
 
 const LABELS = ["licenseLimit", "region"] as const; // E, F 순서(ELIG_OPS 정렬)
+type EligLabel = (typeof LABELS)[number];
 
 export interface EligibilityResult {
   bidNtceNo: string; bidNtceOrd: string; anySucceeded: boolean;
-  results: Record<string, OpOutcome<BidEligibility>>;
+  results: Record<EligLabel, OpOutcome<BidEligibility>>;
 }
 
 export async function runEligibility(client: DataGoKrClient, args: EligibilityArgs): Promise<EligibilityResult> {
@@ -25,6 +28,6 @@ export async function runEligibility(client: DataGoKrClient, args: EligibilityAr
     label: LABELS[i]!, op: o.op,
     params: { inqryDiv: o.byNoInqryDiv, bidNtceNo: args.bidNtceNo, bidNtceOrd, numOfRows: 100, pageNo: 1 },
   }));
-  const { results, anySucceeded } = await runOps(client, calls, formatEligibility);
+  const { results, anySucceeded } = await runOps(client, calls, RawEligibilitySchema, formatEligibility);
   return { bidNtceNo: args.bidNtceNo, bidNtceOrd, anySucceeded, results };
 }

@@ -1,84 +1,97 @@
-import type { RawItem } from "@opendata-kr/core";
+import type {
+  RawBidNotice, RawBasis, RawEvaluation, RawChange,
+  RawEligibility, RawBidItem, RawAttachment,
+} from "./api/schema.js";
 import type {
   BidNotice, BidBasisAmount, BidEvaluation, BidChange,
   BidEligibility, BidItem, BidAttachment,
 } from "./api/types.js";
 
-// 부재 키는 undefined. 존재 키만 반환값에 남긴다.
-const pick = (raw: RawItem, k: string): string | undefined =>
-  raw[k] === undefined || raw[k] === null ? undefined : String(raw[k]);
-
-const mapKeys = <T>(raw: RawItem, keys: (keyof T & string)[]): T => {
-  const out = {} as Record<string, string | undefined>;
-  for (const k of keys) out[k] = pick(raw, k);
-  return out as T;
-};
-
-export function formatItem(raw: RawItem): BidNotice {
-  return mapKeys<BidNotice>(raw, [
-    "bidNtceNo", "bidNtceOrd", "bidNtceNm", "ntceInsttNm", "dminsttNm",
-    "bidNtceDt", "bidClseDt", "opengDt", "presmptPrce", "bidNtceDtlUrl",
-    "bidMethdNm", "cntrctCnclsMthdNm", "bidPrtcptLmtYn", "prtcptLmtRgnNm",
-    "cmmnSpldmdMethdNm",
-  ]);
+export function formatItem(raw: RawBidNotice): BidNotice {
+  return {
+    bidNtceNo: raw.bidNtceNo, bidNtceOrd: raw.bidNtceOrd, bidNtceNm: raw.bidNtceNm,
+    ntceInsttNm: raw.ntceInsttNm, dminsttNm: raw.dminsttNm,
+    bidNtceDt: raw.bidNtceDt, bidClseDt: raw.bidClseDt, opengDt: raw.opengDt,
+    presmptPrce: raw.presmptPrce, bidNtceDtlUrl: raw.bidNtceDtlUrl,
+    bidMethdNm: raw.bidMethdNm, cntrctCnclsMthdNm: raw.cntrctCnclsMthdNm,
+    bidPrtcptLmtYn: raw.bidPrtcptLmtYn, prtcptLmtRgnNm: raw.prtcptLmtRgnNm,
+    cmmnSpldmdMethdNm: raw.cmmnSpldmdMethdNm,
+  };
 }
-export const formatItems = (items: RawItem[]): BidNotice[] => items.map(formatItem);
+export const formatItems = (items: RawBidNotice[]): BidNotice[] => items.map(formatItem);
 
-export const formatBasis = (raw: RawItem): BidBasisAmount =>
-  mapKeys<BidBasisAmount>(raw, ["bidNtceNo", "bidNtceOrd", "bssamt", "evlBssAmt", "rsrvtnPrceRngBgnRate", "rsrvtnPrceRngEndRate", "bssamtOpenDt"]);
+export const formatBasis = (raw: RawBasis): BidBasisAmount => ({
+  bidNtceNo: raw.bidNtceNo, bidNtceOrd: raw.bidNtceOrd,
+  bssamt: raw.bssamt, evlBssAmt: raw.evlBssAmt,
+  rsrvtnPrceRngBgnRate: raw.rsrvtnPrceRngBgnRate, rsrvtnPrceRngEndRate: raw.rsrvtnPrceRngEndRate,
+  bssamtOpenDt: raw.bssamtOpenDt,
+});
 
-export const formatEvaluation = (raw: RawItem): BidEvaluation =>
-  mapKeys<BidEvaluation>(raw, ["bidNtceNo", "bidNtceOrd", "prearngPrceDcsnMthdNm", "bidPrceCalclAOpenDt", "npnInsrprm", "mrfnHealthInsrprm", "qltyMngcst", "sftyMngcst", "sftyChckMngcst", "tmpNm"]);
+export const formatEvaluation = (raw: RawEvaluation): BidEvaluation => ({
+  bidNtceNo: raw.bidNtceNo, bidNtceOrd: raw.bidNtceOrd,
+  prearngPrceDcsnMthdNm: raw.prearngPrceDcsnMthdNm, bidPrceCalclAOpenDt: raw.bidPrceCalclAOpenDt,
+  npnInsrprm: raw.npnInsrprm, mrfnHealthInsrprm: raw.mrfnHealthInsrprm,
+  qltyMngcst: raw.qltyMngcst, sftyMngcst: raw.sftyMngcst, sftyChckMngcst: raw.sftyChckMngcst,
+  tmpNm: raw.tmpNm,
+});
 
-export const formatChange = (raw: RawItem): BidChange =>
-  mapKeys<BidChange>(raw, ["bidNtceNo", "bidNtceOrd", "chgDt", "chgItemNm", "bfchgVal", "afchgVal", "chgDataDivNm"]);
+export const formatChange = (raw: RawChange): BidChange => ({
+  bidNtceNo: raw.bidNtceNo, bidNtceOrd: raw.bidNtceOrd,
+  chgDt: raw.chgDt, chgItemNm: raw.chgItemNm,
+  bfchgVal: raw.bfchgVal, afchgVal: raw.afchgVal, chgDataDivNm: raw.chgDataDivNm,
+});
 
-export const formatEligibility = (raw: RawItem): BidEligibility =>
-  mapKeys<BidEligibility>(raw, ["bidNtceNo", "bidNtceOrd", "lcnsLmtNm", "permsnIndstrytyList", "prtcptPsblRgnNm"]);
+export const formatEligibility = (raw: RawEligibility): BidEligibility => ({
+  bidNtceNo: raw.bidNtceNo, bidNtceOrd: raw.bidNtceOrd,
+  lcnsLmtNm: raw.lcnsLmtNm, permsnIndstrytyList: raw.permsnIndstrytyList,
+  prtcptPsblRgnNm: raw.prtcptPsblRgnNm,
+});
 
-export const formatItemRow = (raw: RawItem): BidItem =>
-  mapKeys<BidItem>(raw, ["bidNtceNo", "bidNtceOrd", "prdctClsfcNoNm", "dtilPrdctClsfcNoNm", "qty", "unit", "uprc", "dlvrPlce", "dlvrTmlmtDt"]);
+export const formatItemRow = (raw: RawBidItem): BidItem => ({
+  bidNtceNo: raw.bidNtceNo, bidNtceOrd: raw.bidNtceOrd,
+  prdctClsfcNoNm: raw.prdctClsfcNoNm, dtilPrdctClsfcNoNm: raw.dtilPrdctClsfcNoNm,
+  qty: raw.qty, unit: raw.unit, uprc: raw.uprc,
+  dlvrPlce: raw.dlvrPlce, dlvrTmlmtDt: raw.dlvrTmlmtDt,
+});
 
 // I(eorder*)·J(atch*) 이질 필드명을 공통으로 정규화
-export function formatAttachment(raw: RawItem): BidAttachment {
+export function formatAttachment(raw: RawAttachment): BidAttachment {
   return {
-    bidNtceNo: pick(raw, "bidNtceNo"),
-    bidNtceOrd: pick(raw, "bidNtceOrd"),
-    fileNm: pick(raw, "eorderAtchFileNm") ?? pick(raw, "atchFileNm") ?? "",
-    fileUrl: pick(raw, "eorderAtchFileUrl") ?? pick(raw, "atchFileUrl") ?? "",
-    docDivNm: pick(raw, "eorderDocDivNm") ?? pick(raw, "atchDocDivNm") ?? "",
+    bidNtceNo: raw.bidNtceNo,
+    bidNtceOrd: raw.bidNtceOrd,
+    fileNm: raw.eorderAtchFileNm ?? raw.atchFileNm ?? "",
+    fileUrl: raw.eorderAtchFileUrl ?? raw.atchFileUrl ?? "",
+    docDivNm: raw.eorderDocDivNm ?? raw.atchDocDivNm ?? "",
   };
 }
 
 // 기본 목록 응답의 공고 규격첨부(ntceSpecFileNm/DocUrl 1..10 쌍)를 첨부 목록으로 정규화한다.
 // 이것이 첨부의 주경로다. 공고문·규격서·제안요청서가 여기로 온다. 전용 첨부 op(e발주·혁신장터RFP)는 드문 특수 케이스라 대부분 공고에서 비어 있다.
-export function formatNoticeSpecAttachments(raw: RawItem): BidAttachment[] {
-  const bidNtceNo = pick(raw, "bidNtceNo");
-  const bidNtceOrd = pick(raw, "bidNtceOrd");
+export function formatNoticeSpecAttachments(raw: RawBidNotice): BidAttachment[] {
+  const { bidNtceNo, bidNtceOrd } = raw;
   const out: BidAttachment[] = [];
   // 공고규격서: ntceSpecDocUrl1~10 (파일명 ntceSpecFileNm 짝 있음)
-  for (let i = 1; i <= 10; i += 1) {
-    const fileUrl = pick(raw, `ntceSpecDocUrl${i}`);
+  const specs: [string | undefined, string | undefined][] = [
+    [raw.ntceSpecDocUrl1, raw.ntceSpecFileNm1],
+    [raw.ntceSpecDocUrl2, raw.ntceSpecFileNm2],
+    [raw.ntceSpecDocUrl3, raw.ntceSpecFileNm3],
+    [raw.ntceSpecDocUrl4, raw.ntceSpecFileNm4],
+    [raw.ntceSpecDocUrl5, raw.ntceSpecFileNm5],
+    [raw.ntceSpecDocUrl6, raw.ntceSpecFileNm6],
+    [raw.ntceSpecDocUrl7, raw.ntceSpecFileNm7],
+    [raw.ntceSpecDocUrl8, raw.ntceSpecFileNm8],
+    [raw.ntceSpecDocUrl9, raw.ntceSpecFileNm9],
+    [raw.ntceSpecDocUrl10, raw.ntceSpecFileNm10],
+  ];
+  for (const [fileUrl, fileNm] of specs) {
     if (!fileUrl) continue;
-    out.push({
-      bidNtceNo,
-      bidNtceOrd,
-      fileNm: pick(raw, `ntceSpecFileNm${i}`) ?? "",
-      fileUrl,
-      docDivNm: "공고규격서",
-    });
+    out.push({ bidNtceNo, bidNtceOrd, fileNm: fileNm ?? "", fileUrl, docDivNm: "공고규격서" });
   }
   // 현장설명서: sptDscrptDocUrl1~5 (파일명 필드 없음 → 합성명). 명세 정의 필드, 공사 공고에서 드묾.
-  for (let i = 1; i <= 5; i += 1) {
-    const fileUrl = pick(raw, `sptDscrptDocUrl${i}`);
-    if (!fileUrl) continue;
-    out.push({
-      bidNtceNo,
-      bidNtceOrd,
-      fileNm: `현장설명서${i}`,
-      fileUrl,
-      docDivNm: "현장설명서",
-    });
-  }
+  const spts = [raw.sptDscrptDocUrl1, raw.sptDscrptDocUrl2, raw.sptDscrptDocUrl3, raw.sptDscrptDocUrl4, raw.sptDscrptDocUrl5];
+  spts.forEach((fileUrl, i) => {
+    if (!fileUrl) return;
+    out.push({ bidNtceNo, bidNtceOrd, fileNm: `현장설명서${i + 1}`, fileUrl, docDivNm: "현장설명서" });
+  });
   return out;
 }
